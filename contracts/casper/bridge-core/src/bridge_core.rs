@@ -510,13 +510,15 @@ impl BridgeCore {
 
 #[cfg(test)]
 mod tests {
-    use super::{BridgeCore, BridgeCoreInitArgs, Error, LockedCanonical, MintedWrapped};
+    use super::{BridgeCore, BridgeCoreInitArgs, Error, LockedCanonical, MintedWrapped, BridgeCoreHostRef};
     use odra::{
         host::{Deployer, HostEnv},
         prelude::*,
     };
     use crate::bridge_core::U256;
-    use odra_modules::cep18_token::{Cep18, Cep18InitArgs};
+    use odra_modules::cep18_token::{Cep18,  Cep18HostRef, Cep18InitArgs};
+    use odra::prelude::{OdraError, ExecutionError};
+ 
 
     /// Helper: create a fresh HostEnv.
     fn env() -> HostEnv {
@@ -531,7 +533,7 @@ mod tests {
         name: &str,
         decimals: u8,
         initial_supply: u64,
-    ) -> Cep18 {
+    ) -> Cep18HostRef {
         env.set_caller(holder);
         Cep18::deploy(
             env,
@@ -545,7 +547,7 @@ mod tests {
     }
 
     /// Helper: deploy BridgeCore with admin + fee_receiver accounts.
-    fn deploy_bridge_core(env: &HostEnv, admin: Address, fee_receiver: Address, fee_bps: u16) -> BridgeCore {
+    fn deploy_bridge_core(env: &HostEnv, admin: Address, fee_receiver: Address, fee_bps: u32) -> BridgeCoreHostRef {
         env.set_caller(admin);
         BridgeCore::deploy(
             env,
@@ -560,7 +562,7 @@ mod tests {
     /// Helper: convenience for whitelisting a token as canonical.
     fn whitelist_canonical(
         env: &HostEnv,
-        bridge: &mut BridgeCore,
+        bridge: &mut BridgeCoreHostRef,
         admin: Address,
         token_addr: Address,
         min: u64,
@@ -726,7 +728,8 @@ mod tests {
         // Expect Error::TokenNotWhitelisted
         assert!(matches!(
             result,
-            Err(odra::ExecutionError::ErrorCode(code))
+            //Err(ExecutionError::ErrorCode(code))
+             Err(OdraError::ExecutionError(code))
                 if code == Error::TokenNotWhitelisted as u16
         ));
     }
@@ -871,7 +874,7 @@ mod tests {
 
         assert!(matches!(
             result,
-            Err(odra::OdraError::ExecutionError(code))
+            Err(OdraError::ExecutionError(code))
                 if code == Error::EventAlreadyHandled as u16
         ));
     }
