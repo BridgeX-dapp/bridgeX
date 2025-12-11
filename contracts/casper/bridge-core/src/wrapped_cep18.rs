@@ -1,6 +1,5 @@
-//use odra::casper_types::U256;
 use odra::prelude::*;
-//use odra::{Address, Var};
+use odra::casper_types::U256;
 use odra_modules::access::Ownable;
 use odra_modules::cep18_token::Cep18;
 

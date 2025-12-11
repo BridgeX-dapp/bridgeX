@@ -1,0 +1,8 @@
+[[contracts]]
+fqn = "flipper::Flipper"
+
+[[contracts]]
+fqn = "bridge::Bridge"
+
+[[contracts]]
+fqn = "bridge_modification::BridgeModification"

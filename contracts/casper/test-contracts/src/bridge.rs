@@ -1,0 +1,49 @@
+use odra::prelude::*;
+
+/// A module definition. Each module struct consists Vars and Mappings
+/// or/and another modules.
+#[odra::module]
+pub struct Bridge {
+    /// The module itself does not store the value,
+    /// it's a proxy that writes/reads value to/from the host.
+    value: Var<bool>,
+}
+
+/// Module implementation.
+///
+/// To generate entrypoints,
+/// an implementation block must be marked as #[odra::module].
+#[odra::module]
+impl Bridge {
+    /// Bridge constructor.
+    /// Initializes the contract.
+    pub fn init(&mut self) {
+        self.value.set(false);
+    }
+
+    /// Replaces the current value with the passed argument.
+    pub fn set(&mut self, value: bool) {
+        self.value.set(value);
+    }
+
+    /// Retrieves value from the storage.
+    /// If the value has never been set, the default value is returned.
+    pub fn get(&self) -> bool {
+        self.value.get_or_default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use odra::host::{Deployer, NoArgs};
+
+    #[test]
+    fn it_works() {
+        let env = odra_test::env();
+        let mut contract = BridgeHostRef::deploy(&env, NoArgs);
+        assert!(!contract.get());
+        contract.set(true);
+        assert!(contract.get());
+    }
+}
