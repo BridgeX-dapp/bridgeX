@@ -34,5 +34,11 @@ export default defineConfig({
       url: configVariable("SEPOLIA_RPC_URL"),
       accounts: [configVariable("SEPOLIA_PRIVATE_KEY")],
     },
+     somnia: {
+      type: "http",
+      chainType: "l1",
+      url: "https://dream-rpc.somnia.network",
+      accounts: ["1624cd89f781ea21740f8a1243b8abea42f6b19e9a873d277ec579e3bcb18a20"], // put dev menomonic or PK here,
+    },
   },
 });

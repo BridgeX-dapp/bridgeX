@@ -1,0 +1,40 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model NetworkStatus {
+  chain              String   @id
+  lastProcessedBlock BigInt
+  updatedAt          DateTime @updatedAt
+}
+
+model Nonce {
+  chain String @id
+  value BigInt
+}
+
+model Transaction {
+  eventId          String @id
+  sourceChain      String
+  destinationChain String
+
+  token     String
+  sender    String
+  recipient String
+  amount    String
+
+  sourceTxHash      String
+  destinationTxHash String?
+
+  nonce  BigInt?
+  isDone Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

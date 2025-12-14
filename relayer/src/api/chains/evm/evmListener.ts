@@ -1,0 +1,1 @@
+// EVM bridge event listener (based on index.ts)

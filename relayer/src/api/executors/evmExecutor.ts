@@ -1,0 +1,1 @@
+// calls BridgeCore.redeem/mint on EVM
