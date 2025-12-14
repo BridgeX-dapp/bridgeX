@@ -1,0 +1,2 @@
+const native_USDC = "0xc674Fc371792581A12Cd9F452eD7EC24Fba6e7dD"
+const wrapped_cspr = "0x55c20A036F2900e4D34dD7A46faA2176F5cd39Dd"

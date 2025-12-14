@@ -9,6 +9,7 @@ const EnvSchema = z.object({
   // EVM
   EVM_RPC_HTTP: z.string().url(),
   EVM_RPC_WS: z.string().url().optional(),
+  EVM_BRIDGE_CORE_ADDRESS: process.env.EVM_BRIDGE_CORE_ADDRESS,
 
   // Casper
   CASPER_RPC: z.string().url(),

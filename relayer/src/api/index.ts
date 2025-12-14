@@ -1,45 +1,75 @@
 // index.ts
-import express, { Express, Request, Response } from 'express';
+import express from 'express';
 import dotenv from 'dotenv';
-
 import cors from 'cors';
-import cron from 'node-cron';
-//import { WebSocketServer } from 'ws';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 
-//1.  IMPORT UTILS AND CONTROLLERS
+import { startEvmListener } from './chains/evm/listener';
+import { checkEvmHealth } from './chains/evm/health';
+import lockNative from './routes/lockNative';
+
 dotenv.config();
 
-// 2. initialize app
-const app: Express = express();
-const server = createServer(app); // http
-const port = process.env.PORT || 4000;
+/* ----------------------------------
+ * 1. App & Server
+ * ---------------------------------- */
+const app = express();
+const server = createServer(app);
+const PORT = process.env.PORT || 4000;
 
+/* ----------------------------------
+ * 2. Middleware
+ * ---------------------------------- */
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
+
+/* ----------------------------------
+ * 3. Socket.IO
+ * ---------------------------------- */
 const io = new Server(server, {
-  cors: {
-    origin: ['*'],
-    methods: ['GET', 'POST'],
-  },
+  cors: { origin: '*', methods: ['GET', 'POST'] },
 });
 
 io.on('connection', (socket) => {
-  console.log('a user connected');
-  socket.on('disconnect', () => console.log('user disconnected'));
+  console.log('🔌 Socket connected:', socket.id);
+  socket.on('disconnect', () =>
+    console.log('❌ Socket disconnected:', socket.id),
+  );
 });
 
-app.get('/', (req: Request, res: Response) => {
-  res.status(200).send('GOAT');
+// expose io to controllers / services
+app.set('io', io);
+
+/* ----------------------------------
+ * 4. Routes
+ * ---------------------------------- */
+//app.get("/", (_, res) => res.send("BridgeX Relayer Running"));
+app.use('/api/v1/tests', lockNative);
+
+/* ----------------------------------
+ * 5. Bootstrap services
+ * ---------------------------------- */
+async function bootstrap() {
+  console.log('🚀 Bootstrapping BridgeX relayer...');
+
+  await checkEvmHealth();
+
+  // Start listeners ONCE
+  await startEvmListener();
+
+  console.log('👂 EVM listener started');
+}
+
+/* ----------------------------------
+ * 6. Start server
+ * ---------------------------------- */
+server.listen(PORT, async () => {
+  console.log(`🌍 Server running on http://localhost:${PORT}`);
+  await bootstrap();
 });
 
-// ✅ REST routes
-//app.use('/api/v1/users', userRoutes);
-
-server.listen(port, () => {
-  console.log(`[server]: Server is running at http://localhost:${port}`);
-});
-
-app.set('socketio', io);
+// keep process alive (optional, node already does)
+process.on('unhandledRejection', console.error);
+process.on('uncaughtException', console.error);
