@@ -18,7 +18,7 @@ export function loadEvmConfig(): EvmConfig {
     EVM_RPC_WS_URL: process.env.EVM_RPC_WS_URL,
     EVM_RELAYER_PRIVATE_KEY: process.env.EVM_RELAYER_PRIVATE_KEY,
     EVM_CHAIN_ID: Number(process.env.EVM_CHAIN_ID),
-    EVM_DEPLOY_BLOCK: 12345678,
+    EVM_DEPLOY_BLOCK: 255026351,
     EVM_REORG_BUFFER: 5,
     EVM_BRIDGE_CORE_ADDRESS: process.env.EVM_BRIDGE_CORE_ADDRESS,
   });

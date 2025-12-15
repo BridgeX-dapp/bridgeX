@@ -6,6 +6,8 @@ import { logger } from '../../lib/utils/logger';
 import { persistLockedCanonicalEvent } from './persistLockedEvent';
 import { normalizeLockedCanonical } from './normalizeLockedCanonicalEvent';
 import { updateEvmNetworkStatus } from './networkStatus';
+import { enqueueLockedCanonical } from '../../lib/utils/jobs/queue/enqueue';
+import { generateEventId } from '../../lib/utils/eventId';
 
 export async function runEvmBackfillOnce() {
   const { httpProvider } = createEvmProviders();
@@ -36,6 +38,20 @@ export async function runEvmBackfillOnce() {
     try {
       //const normalized = normalizeLockedCanonical(ev);
       await persistLockedCanonicalEvent(ev);
+
+      // Enqueu Job
+      const eventId = generateEventId({
+        sourceChain: ev.sourceChain,
+        txHash: ev.txHash,
+        logIndex: ev.logIndex,
+        token: ev.token,
+        amount: ev.amount,
+        nonce: ev.nonce,
+        destChainId: ev.destChainId,
+        destAddress: ev.destAddress,
+      });
+
+      await enqueueLockedCanonical(eventId);
     } catch (err) {
       logger.error(
         { err, txHash: ev.txHash },

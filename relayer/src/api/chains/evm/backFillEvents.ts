@@ -15,7 +15,7 @@ export type LockedCanonicalEvent = {
   blockNumber: number;
   logIndex: number;
 };
-
+const BLOCK_CHUNK_SIZE = 1000;
 export async function queryLockedCanonicalEvents(
   provider: providers.Provider,
   fromBlock: number,
@@ -29,35 +29,73 @@ export async function queryLockedCanonicalEvents(
     provider,
   );
 
-  logger.info(
-    { fromBlock, toBlock },
-    'Querying historical LockedCanonical events',
-  );
-
-  // Build typed filter
   const filter = bridgeCore.filters.LockedCanonical();
 
-  const events = await bridgeCore.queryFilter(filter, fromBlock, toBlock);
+  const allEvents: NormalizedLockedEvent[] = [];
 
-  logger.info({ count: events.length }, 'Fetched LockedCanonical events');
+  logger.info(
+    { fromBlock, toBlock },
+    'Starting chunked backfill for LockedCanonical',
+  );
 
-  return events.map((ev) => {
-    const [token, sender, amount, destChainId, destAddress] = ev.args!;
+  for (let start = fromBlock; start <= toBlock; start += BLOCK_CHUNK_SIZE) {
+    const end = Math.min(start + BLOCK_CHUNK_SIZE - 1, toBlock);
 
-    return {
-      token,
-      sender,
-      amount: amount.toString(),
-      destChainId: destChainId.toString(),
-      destAddress,
-      txHash: ev.transactionHash!,
-      blockNumber: ev.blockNumber!,
-      logIndex: ev.logIndex!,
-      sourceChain: 'EVM',
-      eventName: BRIDGE_EVENT.LOCKED_CANONICAL,
-      netAmount: null,
-      feeAmount: null,
-      nonce: null,
-    };
-  });
+    logger.info({ start, end }, 'Fetching LockedCanonical chunk');
+
+    const events = await bridgeCore.queryFilter(filter, start, end);
+
+    for (const ev of events) {
+      /**
+       * LockedCanonical event signature:
+       *
+       * event LockedCanonical(
+       *   address token,
+       *   address sender,
+       *   uint256 grossAmount,
+       *   uint256 netAmount,
+       *   uint256 feeAmount,
+       *   uint256 nonce,
+       *   uint256 destChainId,
+       *   address destAddress
+       * )
+       */
+      const [
+        token,
+        sender,
+        grossAmount,
+        netAmount,
+        feeAmount,
+        nonce,
+        destChainId,
+        destAddress,
+      ] = ev.args!;
+
+      allEvents.push({
+        sourceChain: 'EVM',
+        eventName: BRIDGE_EVENT.LOCKED_CANONICAL,
+
+        token,
+        sender,
+        amount: grossAmount.toString(),
+        netAmount: netAmount.toString(),
+        feeAmount: feeAmount.toString(),
+        nonce: nonce.toString(),
+
+        destChainId: destChainId.toString(),
+        destAddress,
+
+        txHash: ev.transactionHash!,
+        blockNumber: ev.blockNumber!,
+        logIndex: ev.logIndex!,
+      });
+    }
+  }
+
+  logger.info(
+    { count: allEvents.length },
+    'Finished backfill for LockedCanonical',
+  );
+
+  return allEvents;
 }

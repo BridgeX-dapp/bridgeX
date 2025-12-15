@@ -7,6 +7,9 @@ import { env } from '../../config/env';
 import BridgeCoreArtifact from '../evm/abis/bridgeCore.json';
 import { persistLockedCanonicalEvent } from './persistLockedEvent';
 import prisma from '../../lib/utils/clients/prisma-client';
+import { normalizeLockedCanonical } from './normalizeLockedCanonicalEvent';
+import { enqueueLockedCanonical } from '../../lib/utils/jobs/queue/enqueue';
+import { generateEventId } from '../../lib/utils/eventId';
 
 export async function startEvmListener() {
   const { httpProvider, wsProvider } = createEvmProviders();
@@ -86,9 +89,26 @@ export async function startEvmListener() {
       try {
         const blockNumber = event.blockNumber;
         // 1️⃣ Persist event (idempotent)
-        await persistLockedCanonicalEvent(event);
+        const normalized = normalizeLockedCanonical(event);
+        await persistLockedCanonicalEvent(normalized);
 
-        // 2️⃣ Advance NetworkStatus safely
+        // 2 enque job
+        // 2.1 generate unique eventId
+        const eventId = generateEventId({
+          sourceChain: normalized.sourceChain,
+          txHash: normalized.txHash,
+          logIndex: normalized.logIndex,
+          token: normalized.token,
+          amount: normalized.amount,
+          nonce: normalized.nonce,
+          destChainId: normalized.destChainId,
+          destAddress: normalized.destAddress,
+        });
+
+        // 2.2 add new job
+        await enqueueLockedCanonical(eventId);
+
+        // 3 Advance NetworkStatus safely
         await prisma.networkStatus.upsert({
           where: { chain: 'EVM' },
           update: {
@@ -111,7 +131,10 @@ export async function startEvmListener() {
             txHash: event.transactionHash,
             blockNumber: event.blockNumber,
             logIndex: event.logIndex,
-            error,
+            errorMessage: error?.message,
+            errorStack: error?.stack,
+            errorName: error?.name,
+            rawError: error,
           },
           'Failed to process LockedCanonical event',
         );

@@ -10,6 +10,7 @@ import { checkEvmHealth } from './chains/evm/health';
 import lockNative from './routes/lockNative';
 import { runEvmBackfillOnce } from './chains/evm/backFillProcessors';
 import { generateEventId } from './lib/utils/eventId';
+import { startBridgeWorker } from './executors/evm/bridgeWorker';
 
 dotenv.config();
 
@@ -60,6 +61,7 @@ async function bootstrap() {
   //await runEvmBackfillOnce();
   // Start listeners ONCE
   await startEvmListener();
+  startBridgeWorker();
 
   console.log('👂 EVM listener started');
 }

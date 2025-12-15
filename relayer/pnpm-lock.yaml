@@ -47,6 +47,9 @@ importers:
       express-async-handler:
         specifier: ^1.2.0
         version: 1.2.0
+      ioredis:
+        specifier: ^5.8.2
+        version: 5.8.2
       nanoid:
         specifier: ^5.1.5
         version: 5.1.5
