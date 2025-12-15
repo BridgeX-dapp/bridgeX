@@ -1,23 +1,37 @@
-//import { keccak256, stringToBytes } from 'viem';
 import { utils } from 'ethers';
+
 export function generateEventId(params: {
   sourceChain: string;
-  destinationChain: string;
+  txHash: string;
+  logIndex: number;
   token: string;
-  sender: string;
-  recipient: string;
   amount: string;
   nonce: string;
+  destChainId: string;
+  destAddress: string;
 }) {
-  const payload = [
-    params.sourceChain,
-    params.destinationChain,
-    params.token.toLowerCase(),
-    params.sender.toLowerCase(),
-    params.recipient.toLowerCase(),
-    params.amount,
-    params.nonce,
-  ].join('|');
-
-  return utils.keccak256(utils.toUtf8Bytes(payload));
+  return utils.keccak256(
+    utils.defaultAbiCoder.encode(
+      [
+        'string', // sourceChain
+        'bytes32', // txHash
+        'uint256', // logIndex
+        'address', // token
+        'uint256', // amount
+        'uint256', // nonce
+        'string', // destChainId
+        'address', // destAddress
+      ],
+      [
+        params.sourceChain,
+        params.txHash,
+        params.logIndex,
+        params.token,
+        params.amount,
+        params.nonce,
+        params.destChainId,
+        params.destAddress,
+      ],
+    ),
+  );
 }

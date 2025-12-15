@@ -8,6 +8,8 @@ import { Server } from 'socket.io';
 import { startEvmListener } from './chains/evm/listener';
 import { checkEvmHealth } from './chains/evm/health';
 import lockNative from './routes/lockNative';
+import { runEvmBackfillOnce } from './chains/evm/backFillProcessors';
+import { generateEventId } from './lib/utils/eventId';
 
 dotenv.config();
 
@@ -55,7 +57,7 @@ async function bootstrap() {
   console.log('🚀 Bootstrapping BridgeX relayer...');
 
   await checkEvmHealth();
-
+  //await runEvmBackfillOnce();
   // Start listeners ONCE
   await startEvmListener();
 

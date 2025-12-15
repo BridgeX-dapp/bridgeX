@@ -9,3 +9,5 @@ export const QUEUES = {
   EVM_TO_CASPER: 'evm_to_casper',
   CASPER_TO_EVM: 'casper_to_evm',
 };
+
+export const PROTOCOL_VERSION = 1;

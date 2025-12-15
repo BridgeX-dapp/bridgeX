@@ -20,21 +20,51 @@ model Nonce {
 }
 
 model Transaction {
-  eventId          String @id
-  sourceChain      String
-  destinationChain String
+  id                     Int          @id @default(autoincrement())
+  sourceChain            CHAIN        @default(EVM)
+  eventName              BRIDGE_EVENT @default(LOCKED_CANONICAL) // "LockedCanonical"
+  sourceTxHash           String
+  sourceLogIndex         Int?
+  eventId                String       @unique // keccak256(...) OR `${txHash}:${logIndex}`
+  sourceBlockNumber      BigInt
+  token                  String
+  sender                 String
+  amount                 String
+  netAmount              String?
+  feeAmount              String?
+  nonce                  BigInt?
+  destChainId            String
+  destAddress            String
+  destinationTxHash      String?
+  destinationBlockNumber BigInt?
+  status                 TX_STATUS    @default(LOCKED)
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
 
-  token     String
-  sender    String
-  recipient String
-  amount    String
+  @@unique([sourceTxHash, sourceLogIndex])
+}
 
-  sourceTxHash      String
-  destinationTxHash String?
+enum CHAIN {
+  EVM
+  CASPER
+}
 
-  nonce  BigInt?
-  isDone Boolean @default(false)
+enum BRIDGE_EVENT {
+  LOCKED_CANONICAL
+  BURNED_WRAPPED
+  MINTED_WRAPPED
+  UNLOCKED_CANONICAL
+}
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+enum TX_STATUS {
+  LOCKED // canonical locked on source
+  BURNED // wrapped burned on source
+
+  QUEUED // picked up by relayer
+  EXECUTING // tx sent to destination chain
+
+  EXECUTED // mint/unlock succeeded
+  FAILED // execution failed (retryable)
+
+  FINALIZED // optional: confirmed & irreversible
 }

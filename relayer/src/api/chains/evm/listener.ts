@@ -5,8 +5,10 @@ import { logger } from '../../lib/utils/logger';
 import { loadEvmConfig } from './config';
 import { env } from '../../config/env';
 import BridgeCoreArtifact from '../evm/abis/bridgeCore.json';
+import { persistLockedCanonicalEvent } from './persistLockedEvent';
+import prisma from '../../lib/utils/clients/prisma-client';
 
-export function startEvmListener() {
+export async function startEvmListener() {
   const { httpProvider, wsProvider } = createEvmProviders();
 
   // Prefer WebSocket for real-time events
@@ -49,7 +51,7 @@ export function startEvmListener() {
 
   bridgeCore.on(
     'LockedCanonical',
-    (
+    async (
       token: string,
       sender: string,
       amount,
@@ -80,6 +82,40 @@ export function startEvmListener() {
       // - generate eventId
       // - persist to DB
       // - enqueue job
+
+      try {
+        const blockNumber = event.blockNumber;
+        // 1️⃣ Persist event (idempotent)
+        await persistLockedCanonicalEvent(event);
+
+        // 2️⃣ Advance NetworkStatus safely
+        await prisma.networkStatus.upsert({
+          where: { chain: 'EVM' },
+          update: {
+            lastProcessedBlock: {
+              set: blockNumber,
+            },
+          },
+          create: {
+            chain: 'EVM',
+            lastProcessedBlock: blockNumber,
+          },
+        });
+      } catch (error) {
+        logger.error(
+          {
+            chain: 'EVM',
+            stage: 'LIVE_LISTENER',
+            action: 'PERSIST_AND_ADVANCE',
+            eventName: 'LockedCanonical',
+            txHash: event.transactionHash,
+            blockNumber: event.blockNumber,
+            logIndex: event.logIndex,
+            error,
+          },
+          'Failed to process LockedCanonical event',
+        );
+      }
     },
   );
 }
