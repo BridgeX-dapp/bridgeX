@@ -33,6 +33,9 @@ pub enum Error {
     FeeTooHigh          = 10_005,
     FeeReceiverNotSet   = 10_006,
     EventAlreadyHandled = 10_007,
+    NotAdmin   = 10_008,
+    NotRelayer = 10_009,
+    NotPauser  = 10_010
 }
 
 /// Outgoing lock on a canonical token (Casper as source chain).
@@ -43,7 +46,7 @@ pub struct LockedCanonical {
     pub recipient: Address,
     pub amount: U256,
     pub fee: U256,
-    pub destination_chain: String,
+    pub destination_chain: u32,
     pub nonce: u64,
 }
 
@@ -55,7 +58,7 @@ pub struct BurnedWrapped {
     pub recipient: Address,
     pub amount: U256,
     pub fee: U256,
-    pub destination_chain: String,
+    pub destination_chain: u32,
     pub nonce: u64,
 }
 
@@ -65,7 +68,7 @@ pub struct MintedWrapped {
     pub token: Address,
     pub recipient: Address,
     pub amount: U256,
-    pub source_chain: String,
+    pub source_chain: u32,
     pub event_id: [u8; 32],
 }
 
@@ -75,14 +78,18 @@ pub struct UnlockedCanonical {
     pub token: Address,
     pub recipient: Address,
     pub amount: U256,
-    pub source_chain: String,
+    pub source_chain: u32,
     pub event_id: [u8; 32],
 }
 
 #[odra::event]
 pub struct TokenConfigUpdated {
     pub token: Address,
-    pub config: TokenConfig,
+    pub is_whitelisted: bool,
+    pub is_canonical: bool,
+    pub min_amount: U256,
+    pub max_amount: U256,
+    //pub config: TokenConfig,
 }
 
 #[odra::event]
@@ -181,7 +188,7 @@ impl BridgeCore {
         &mut self,
         token: Address,
         amount: &U256,
-        destination_chain: String,
+        destination_chain: u32,
         recipient: Address
     ) {
         self.pause.require_not_paused();
@@ -233,7 +240,7 @@ impl BridgeCore {
         &mut self,
         token: Address,
         amount: &U256,
-        destination_chain: String,
+        destination_chain: u32,
         recipient: Address
     ) {
         self.pause.require_not_paused();
@@ -287,7 +294,7 @@ impl BridgeCore {
         token: Address,
         recipient: Address,
         amount: &U256,
-        source_chain: String,
+        source_chain: u32,
         event_id: [u8; 32]
     ) {
         self.pause.require_not_paused();
@@ -304,11 +311,12 @@ impl BridgeCore {
         }
 
         self.validate_amount(&cfg, amount);
-
+     
+        self.mark_event_processed(&event_id);
         let mut token_ref = Cep18ContractRef::new(self.env(), token);
         token_ref.mint(&recipient, amount);
 
-        self.mark_event_processed(&event_id);
+        //self.mark_event_processed(&event_id);
 
         self.env().emit_event(MintedWrapped {
             token,
@@ -327,7 +335,7 @@ impl BridgeCore {
         token: Address,
         recipient: Address,
         amount: &U256,
-        source_chain: String,
+        source_chain: u32,
         event_id: [u8; 32]
     ) {
         self.pause.require_not_paused();
@@ -344,7 +352,6 @@ impl BridgeCore {
         }
 
         self.validate_amount(&cfg, amount);
-
         let mut token_ref = Cep18ContractRef::new(self.env(), token);
 
         // Bridge holds canonical tokens in its own balance.
@@ -384,10 +391,13 @@ impl BridgeCore {
         };
         self.token_config.set(&token, config.clone());
 
-        self.env().emit_event(TokenConfigUpdated {
-            token,
-            config,
-        });
+self.env().emit_event(TokenConfigUpdated {
+     token,
+     is_whitelisted,
+     is_canonical,
+     min_amount,
+     max_amount
+    });
     }
 
     pub fn set_fee_bps(&mut self, new_fee_bps: u32) {
@@ -439,6 +449,11 @@ impl BridgeCore {
         self.pause.unpause();
     }
 
+    /// TEST / VIEW helper
+    pub fn is_admin(&self, addr: Address) -> bool {
+        self.access.has_role(&DEFAULT_ADMIN_ROLE, &addr)
+    }
+
     // ========= INTERNAL HELPERS =========
 
     fn next_nonce(&mut self) -> u64 {
@@ -484,10 +499,13 @@ impl BridgeCore {
         self.processed_events.set(event_id, true);
     }
 
+
+
     fn require_admin(&self) {
         let caller = self.env().caller();
         self.access.check_role(&DEFAULT_ADMIN_ROLE, &caller);
     }
+   
 
     fn require_relayer(&self) {
         let caller = self.env().caller();
@@ -498,10 +516,72 @@ impl BridgeCore {
         let caller = self.env().caller();
         self.access.check_role(&PAUSER_ROLE, &caller);
     }
+
+
+    // ======================================================
+// READ-ONLY / VIEW FUNCTIONS
+// ======================================================
+
+/// Returns full token configuration if token is known.
+pub fn get_token_config(&self, token: Address) -> Option<TokenConfig> {
+    self.token_config.get(&token)
+}
+
+/// Returns true if token is whitelisted.
+pub fn is_token_whitelisted(&self, token: Address) -> bool {
+    self.token_config
+        .get(&token)
+        .map(|c| c.is_whitelisted)
+        .unwrap_or(false)
+}
+
+/// Returns true if token is canonical.
+pub fn is_canonical_token(&self, token: Address) -> bool {
+    self.token_config
+        .get(&token)
+        .map(|c| c.is_canonical)
+        .unwrap_or(false)
+}
+
+/// Returns min/max bridge limits for a token.
+pub fn get_token_limits(&self, token: Address) -> Option<(U256, U256)> {
+    self.token_config
+        .get(&token)
+        .map(|c| (c.min_amount, c.max_amount))
+}
+
+/// Returns true if a bridge event has already been processed.
+pub fn is_event_processed(&self, event_id: [u8; 32]) -> bool {
+    self.processed_events
+        .get(&event_id)
+        .unwrap_or(false)
+}
+
+/// Returns true if bridge is paused.
+pub fn is_paused(&self) -> bool {
+    self.pause.is_paused()
+}
+
+/// Returns fee receiver and fee in basis points.
+pub fn get_fee_params(&self) -> Option<(Address, u32)> {
+    let receiver = self.fee_receiver.get()?;
+    let bps = self.fee_bps.get()?;
+    Some((receiver, bps))
 }
 
 
+/// Returns true if account has RELAYER_ROLE.
+pub fn has_relayer_role(&self, account: Address) -> bool {
+    self.access.has_role(&RELAYER_ROLE, &account)
+}
 
+/// Returns true if account has DEFAULT_ADMIN_ROLE.
+pub fn has_admin_role(&self, account: Address) -> bool {
+    self.access.has_role(&DEFAULT_ADMIN_ROLE, &account)
+}
+
+
+}
 
 
 
@@ -518,6 +598,7 @@ mod tests {
     use crate::bridge_core::U256;
     use odra_modules::cep18_token::{Cep18,  Cep18HostRef, Cep18InitArgs};
     use odra::prelude::{OdraError, ExecutionError};
+     use odra_modules::access::DEFAULT_ADMIN_ROLE;
  
 
     /// Helper: create a fresh HostEnv.
@@ -559,43 +640,64 @@ mod tests {
         )
     }
 
+
     /// Helper: convenience for whitelisting a token as canonical.
-    fn whitelist_canonical(
-        env: &HostEnv,
-        bridge: &mut BridgeCoreHostRef,
-        admin: Address,
-        token_addr: Address,
-        min: u64,
-        max: u64,
-    ) {
-        env.set_caller(admin);
-        bridge.set_token_config(
-            token_addr,
-            true,   // is_whitelisted
-            true,   // is_canonical
-            U256::from(min),
-            U256::from(max),
-        );
-    }
+
+fn whitelist_canonical(
+    env: &HostEnv,
+    bridge: &mut BridgeCoreHostRef,
+    admin: Address,
+    token_addr: Address,
+    min: u64,
+    max: u64,
+) {
+    env.set_caller(admin);
+
+    let res = bridge.try_set_token_config(
+        token_addr,
+        true,   // is_whitelisted
+        true,   // is_canonical
+        U256::from(min),
+        U256::from(max),
+    );
+
+    assert!(
+        res.is_ok(),
+        "admin failed to whitelist canonical token: {:?}",
+        res
+    );
+}
+
+
+
 
     /// Helper: convenience for whitelisting a token as wrapped.
+
     fn whitelist_wrapped(
-        env: &HostEnv,
-        bridge: &mut BridgeCore,
-        admin: Address,
-        token_addr: Address,
-        min: u64,
-        max: u64,
-    ) {
-        env.set_caller(admin);
-        bridge.set_token_config(
-            token_addr,
-            true,   // is_whitelisted
-            false,  // is_canonical
-            U256::from(min),
-            U256::from(max),
-        );
-    }
+    env: &HostEnv,
+    bridge: &mut BridgeCoreHostRef,
+    admin: Address,
+    token_addr: Address,
+    min: u64,
+    max: u64,
+) {
+    env.set_caller(admin);
+
+    let res = bridge.try_set_token_config(
+        token_addr,
+        true,   // is_whitelisted
+        false,  // is_canonical
+        U256::from(min),
+        U256::from(max),
+    );
+
+    assert!(
+        res.is_ok(),
+        "admin failed to whitelist wrapped token: {:?}",
+        res
+    );
+}
+
 
     // ------------------------------------------------------------------------
     // TEST 1: Lock canonical token (happy path)
@@ -624,6 +726,12 @@ mod tests {
         // Deploy bridge
         let mut bridge = deploy_bridge_core(&env, admin, fee_receiver, 100 /* 1% fee */);
 
+          // immediately verify roles before calling set_token_config
+env.set_caller(admin);
+assert!(
+    bridge.try_is_admin(admin).unwrap(),
+    "admin should have DEFAULT_ADMIN_ROLE right after init"
+);
         // Whitelist canonical token
         whitelist_canonical(&env, &mut bridge, admin, canonical.address(), 1, 1_000_000);
 
@@ -633,7 +741,7 @@ mod tests {
         canonical.approve(&bridge.address(), &amount_to_lock);
 
         // Call lock_canonical
-        let dest_chain = "Ethereum".to_string();
+        let dest_chain = 2;
         env.set_caller(user);
         bridge.lock_canonical(
             canonical.address(),
@@ -718,20 +826,21 @@ mod tests {
         canonical.approve(&bridge.address(), &amount);
 
         env.set_caller(user);
-        let result = bridge.lock_canonical(
+
+       let err = bridge
+        .try_lock_canonical(
             canonical.address(),
             &amount,
-            "Ethereum".to_string(),
+            2,
             env.get_account(3),
-        );
+        )
+        .unwrap_err();
 
-        // Expect Error::TokenNotWhitelisted
-        assert!(matches!(
-            result,
-            //Err(ExecutionError::ErrorCode(code))
-             Err(OdraError::ExecutionError(code))
-                if code == Error::TokenNotWhitelisted as u16
-        ));
+    assert_eq!(err, Error::TokenNotWhitelisted.into());
+
+
+    
+
     }
 
     // ------------------------------------------------------------------------
@@ -763,8 +872,8 @@ mod tests {
             &env,
             &mut bridge,
             admin,
-            wrapped.address(),
-            1,        // min
+             wrapped.address(),
+             1,        // min
             1_000_000 // max
         );
 
@@ -773,30 +882,30 @@ mod tests {
 
         // 1) Non-relayer tries to call mint_wrapped -> must revert
         env.set_caller(non_relayer);
-        let result = bridge.mint_wrapped(
-            wrapped.address(),
-            user,
-            &amount,
-            "Ethereum".to_string(),
-            event_id,
-        );
 
-        assert!(
-            result.is_err(),
-            "mint_wrapped must fail when called by non-relayer"
-        );
+       let err = bridge
+    .try_mint_wrapped(
+        wrapped.address(),
+        user,
+        &amount,
+         2, //"Ethereum".to_string(),
+        event_id,
+    )
+    .unwrap_err();
+
+assert_eq!(err, Error::NotRelayer.into());
+    
 
         // 2) Admin is RELAYER_ROLE by default in init, so this should succeed
         env.set_caller(admin);
-        bridge
-            .mint_wrapped(
-                wrapped.address(),
-                user,
-                &amount,
-                "Ethereum".to_string(),
-                event_id,
-            )
-            .unwrap();
+
+      bridge.mint_wrapped(
+    wrapped.address(),
+    user,
+    &amount,
+    2,
+    event_id,
+);
 
         // User balance must now be 200
         let user_balance = wrapped.balance_of(&user);
@@ -807,7 +916,7 @@ mod tests {
             token: wrapped.address(),
             recipient: user,
             amount,
-            source_chain: "Ethereum".to_string(),
+            source_chain: 2,
             event_id,
         };
 
@@ -853,30 +962,27 @@ mod tests {
 
         // First call by relayer (admin) should succeed
         env.set_caller(admin);
-        bridge
-            .mint_wrapped(
-                wrapped.address(),
-                user,
-                &amount,
-                "Ethereum".to_string(),
-                event_id,
-            )
-            .unwrap();
+        bridge.try_mint_wrapped(
+        wrapped.address(),
+        user,
+        &amount,
+        2,
+        event_id,
+    )
+    .unwrap();
 
-        // Second call with same event_id should revert with Error::EventAlreadyHandled
-        let result = bridge.mint_wrapped(
-            wrapped.address(),
-            user,
-            &amount,
-            "Ethereum".to_string(),
-            event_id,
-        );
+// Second call with same event_id should revert
+let err = bridge
+    .try_mint_wrapped(
+        wrapped.address(),
+        user,
+        &amount,
+        2,
+        event_id,
+    )
+    .unwrap_err();
 
-        assert!(matches!(
-            result,
-            Err(OdraError::ExecutionError(code))
-                if code == Error::EventAlreadyHandled as u16
-        ));
+assert_eq!(err, Error::EventAlreadyHandled.into());
     }
 
     // ------------------------------------------------------------------------
@@ -916,37 +1022,93 @@ mod tests {
 
         // Pause bridge
         env.set_caller(admin);
-        bridge.pause().unwrap();
+        bridge.try_pause().unwrap();
 
         // Now user call must revert because contract is paused
         env.set_caller(user);
-        let result = bridge.lock_canonical(
-            canonical.address(),
-            &amount,
-            "Ethereum".to_string(),
-            env.get_account(3),
-        );
+    
 
-        assert!(
-            result.is_err(),
-            "lock_canonical must revert when bridge is paused"
-        );
+    let result = bridge.try_lock_canonical(
+    canonical.address(),
+    &amount,
+    2,
+    env.get_account(3),
+);
+
+assert!(
+    result.is_err(),
+    "lock_canonical must revert when bridge is paused"
+);
+
 
         // Unpause and try again
         env.set_caller(admin);
-        bridge.unpause().unwrap();
+        bridge.try_unpause().unwrap();
 
         env.set_caller(user);
-        let result_ok = bridge.lock_canonical(
-            canonical.address(),
-            &amount,
-            "Ethereum".to_string(),
-            env.get_account(3),
-        );
 
-        assert!(
-            result_ok.is_ok(),
-            "lock_canonical should succeed after unpause"
-        );
+        let result_ok = bridge.try_lock_canonical(
+    canonical.address(),
+    &amount,
+    2,
+    env.get_account(3),
+);
+
+assert!(
+    result_ok.is_ok(),
+    "lock_canonical should succeed after unpause"
+);
+
+        
     }
+
+    // ------------------------------------------------------------------------
+    // TEST 6: token config read-only functions
+    // ------------------------------------------------------------------------
+    
+    #[test]
+fn read_only_token_config_works() {
+    let env = env();
+
+    let admin = env.get_account(0);
+    let fee_receiver = env.get_account(1);
+
+    let mut bridge = deploy_bridge_core(&env, admin, fee_receiver, 0);
+
+    let token = deploy_canonical_token(
+        &env,
+        admin,
+        "CAN",
+        "Canonical Token",
+        18,
+        0,
+    );
+
+    whitelist_canonical(
+        &env,
+        &mut bridge,
+        admin,
+        token.address(),
+        10,
+        1_000,
+    );
+
+    // Full config
+    let cfg = bridge.get_token_config(token.address()).unwrap();
+    assert!(cfg.is_whitelisted);
+    assert!(cfg.is_canonical);
+    assert_eq!(cfg.min_amount, U256::from(10u64));
+    assert_eq!(cfg.max_amount, U256::from(1_000u64));
+
+    // Convenience helpers
+    assert!(bridge.is_token_whitelisted(token.address()));
+    assert!(bridge.is_canonical_token(token.address()));
+
+    let (min, max) = bridge.get_token_limits(token.address()).unwrap();
+    assert_eq!(min, U256::from(10u64));
+    assert_eq!(max, U256::from(1_000u64));
+}
+
+
+
 }
