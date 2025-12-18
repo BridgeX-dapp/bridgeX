@@ -6,3 +6,7 @@ Cargo.lock
 .builder*
 /wasm
 .env
+# 🔐 Casper / Odra secret keys
+keys/
+*.pem
+*.env

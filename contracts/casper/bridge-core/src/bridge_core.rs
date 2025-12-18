@@ -4,14 +4,19 @@ use odra_modules::access::{AccessControl, Role, DEFAULT_ADMIN_ROLE};
 use odra_modules::security::Pauseable;
 use odra::ContractRef;
 /// External interface to a CEP-18 token.
-/// You can tweak names if your CEP-18 impl uses slightly different entrypoints.
 #[odra::external_contract]
 pub trait Cep18 {
     fn transfer_from(&mut self, owner: &Address, recipient: &Address, amount: &U256);
     fn transfer(&mut self, recipient: &Address, amount: &U256);
-    fn mint(&mut self, recipient: &Address, amount: &U256);
-    fn burn(&mut self, owner: &Address, amount: &U256);
 }
+
+#[odra::external_contract]
+pub trait WrappedToken {
+    fn mint_for_bridge(&mut self, recipient: &Address, amount: &U256);
+    fn burn_for_bridge(&mut self, owner: &Address, amount: &U256);
+}
+
+
 
 /// Per-token configuration (whitelisting, limits, canonical/wrapped flag).
 #[odra::odra_type]
@@ -262,10 +267,10 @@ impl BridgeCore {
         let fee = self.compute_fee(amount, fee_bps);
         let net_amount = amount.checked_sub(fee).unwrap_or_else(|| U256::zero());
 
-        let mut token_ref = Cep18ContractRef::new(self.env(), token);
+        let mut token_ref = WrappedTokenContractRef::new(self.env(), token);
 
         // Burn full amount from caller.
-        token_ref.burn(&caller, amount);
+        token_ref.burn_for_bridge(&caller, amount);
 
         // Optional: if you want relayer fee in wrapped token, mint to fee_receiver.
         // For now, we assume fee is taken on destination chain (can be adjusted).
@@ -282,7 +287,7 @@ impl BridgeCore {
             destination_chain,
             nonce,
         });
-    }
+    } 
 
     // ========= RELAYER-ONLY FLOWS (Casper as DESTINATION) =========
 
@@ -311,12 +316,11 @@ impl BridgeCore {
         }
 
         self.validate_amount(&cfg, amount);
-     
-        self.mark_event_processed(&event_id);
-        let mut token_ref = Cep18ContractRef::new(self.env(), token);
-        token_ref.mint(&recipient, amount);
+    
+        let mut token_ref = WrappedTokenContractRef::new(self.env(), token);
+        token_ref.mint_for_bridge(&recipient, amount);
 
-        //self.mark_event_processed(&event_id);
+        self.mark_event_processed(&event_id);
 
         self.env().emit_event(MintedWrapped {
             token,

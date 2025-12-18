@@ -2,7 +2,10 @@
 fqn = "flipper::Flipper"
 
 [[contracts]]
-fqn = "bridge::Bridge"
+fqn = "bridge_core::BridgeCore"
 
 [[contracts]]
-fqn = "wrapped_cep18::WrappedCep18"
+fqn = "wrapped_cep18::WrappedToken"
+
+[[contracts]]
+fqn = "canonical_cep18::CanonicalToken"

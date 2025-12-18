@@ -9,8 +9,10 @@ import { startEvmListener } from './chains/evm/listener';
 import { checkEvmHealth } from './chains/evm/health';
 import lockNative from './routes/lockNative';
 import { runEvmBackfillOnce } from './chains/evm/backFillProcessors';
+import { runCasperBackfillOnce } from './chains/casper/backFillProcessors';
 import { generateEventId } from './lib/utils/eventId';
 import { startBridgeWorker } from './executors/evm/bridgeWorker';
+import { startCasperListener } from './chains/casper/listener';
 
 dotenv.config();
 
@@ -59,8 +61,10 @@ async function bootstrap() {
 
   await checkEvmHealth();
   //await runEvmBackfillOnce();
+  //await runCasperBackfillOnce();
   // Start listeners ONCE
   await startEvmListener();
+  await startCasperListener();
   startBridgeWorker();
 
   console.log('👂 EVM listener started');

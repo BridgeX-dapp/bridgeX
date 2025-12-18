@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 odra = { version = "2.4.0", features = [], default-features = false }
 odra-modules = { version = "2.4.0", features = [], default-features = false }
+odra-casper-livenet-env = { version = "2.4.0", optional = true }
 
 [dev-dependencies]
 odra-test = { version = "2.4.0", features = [], default-features = false }
@@ -16,6 +17,10 @@ odra-build = { version = "2.4.0", features = [], default-features = false }
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 odra-build = { version = "2.4.0", features = [], default-features = false }
 odra-cli = { version = "2.4.0", features = [], default-features = false }
+
+[features]
+default = []
+livenet = ["odra-casper-livenet-env"]
 
 [[bin]]
 name = "bridge_core_build_contract"
@@ -31,6 +36,31 @@ test = false
 name = "bridge_core_cli"
 path = "bin/cli.rs"
 test = false
+
+[[bin]]
+name = "deploy_bridge"
+path = "bin/deploy_bridge.rs"
+required-features = ["livenet"]
+test = false
+
+[[bin]]
+name = "deploy_wrapped_cep18"
+path = "bin/deploy_wrapped_cep18.rs"
+required-features = ["livenet"]
+test = false
+
+[[bin]]
+name = "whitelist_wrapped"
+path = "bin/whitelist_wrapped.rs"
+required-features = ["livenet"]
+test = false
+
+[[bin]]
+name = "deploy_canonical"
+path = "bin/deploy_canonical.rs"
+required-features = ["livenet"]
+test = false
+
 
 [profile.release]
 codegen-units = 1

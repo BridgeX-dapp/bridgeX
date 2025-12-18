@@ -5,3 +5,4 @@ extern crate alloc;
 pub mod flipper;
 pub mod bridge_core;
 pub mod wrapped_cep18;
+pub mod canonical_cep18;
