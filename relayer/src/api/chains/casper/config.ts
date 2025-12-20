@@ -1,13 +1,15 @@
 import { z } from 'zod';
 
 const casperConfigSchema = z.object({
-  CASPER_NETWORK: z.enum(['casper_testnet', 'casper_mainnet']),
+  CASPER_NETWORK: z.enum(['casper-test', 'casper-mainnet']),
 
   // CSPR.cloud
   CSPR_CLOUD_URL: z.string().url(),
   CSPR_CLOUD_STREAMING_URL: z.string().url(),
   CSPR_CLOUD_ACCESS_KEY: z.string().min(1),
   CASPER_RPC_URL: z.string().url(),
+  CASPER_CHAIN_NAME: z.string().min(1),
+  CASPER_GAS_PAYMENT: z.string(),
 
   // Relayer key (PEM or base64)
   CASPER_RELAYER_PRIVATE_KEY: z.string().min(1),
@@ -30,11 +32,12 @@ export type CasperConfig = z.infer<typeof casperConfigSchema>;
 export function loadCasperConfig(): CasperConfig {
   const parsed = casperConfigSchema.safeParse({
     CASPER_NETWORK: process.env.CASPER_NETWORK,
-
+    CASPER_GAS_PAYMENT: process.env.CASPER_GAS_PAYMENT,
     CSPR_CLOUD_URL: process.env.CSPR_CLOUD_URL,
     CSPR_CLOUD_STREAMING_URL: process.env.CSPR_CLOUD_STREAMING_URL,
     CSPR_CLOUD_ACCESS_KEY: process.env.CSPR_CLOUD_ACCESS_KEY,
     CASPER_RPC_URL: process.env.CASPER_RPC_URL,
+    CASPER_CHAIN_NAME: process.env.CASPER_CHAIN_NAME,
 
     CASPER_RELAYER_PRIVATE_KEY: process.env.CASPER_RELAYER_PRIVATE_KEY,
 

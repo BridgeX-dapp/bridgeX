@@ -15,12 +15,11 @@ export interface CasperRelayerSigner {
 
 export async function createCasperSigner(): Promise<CasperRelayerSigner> {
   const config = loadCasperConfig();
+  const pem = config.CASPER_RELAYER_PRIVATE_KEY.replace(/\\n/g, '\n');
 
   // 1️⃣ Load private key (PEM, secp256k1)
-  const privateKey = await PrivateKey.fromPem(
-    config.CASPER_RELAYER_PRIVATE_KEY,
-    KeyAlgorithm.SECP256K1,
-  );
+
+  const privateKey = await PrivateKey.fromPem(pem, KeyAlgorithm.SECP256K1);
 
   const publicKey = privateKey.publicKey;
 
