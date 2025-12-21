@@ -11,10 +11,10 @@ import {
   Hash,
   Key,
 } from 'casper-js-sdk';
-import { createCasperSigner } from './signer';
-import { loadCasperConfig } from './config';
-import { logger } from '../../lib/utils/logger';
-import { clAddressFromContractHash, clAddressFromPublicKey } from './utils';
+import { loadCasperConfig } from '../config';
+import { createCasperSigner } from '../signer';
+import { clAddressFromContractHash, clAddressFromPublicKey } from '../utils';
+import { logger } from '../../../lib/utils/logger';
 
 export async function lockCanonicalOnCasper(params: {
   token: string;
@@ -58,7 +58,7 @@ export async function lockCanonicalOnCasper(params: {
   deploy.sign(signer.privateKey);
   const result = await signer.rpcClient.putDeploy(deploy);
 
-  logger.error(
+  logger.info(
     {
       source: 'Casper deploy',
     },

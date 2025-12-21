@@ -1,5 +1,5 @@
 import expressAsyncHandler from 'express-async-handler';
-import { unlockCanonicalOnCasper } from '../chains/casper/bridgeUtils/unlokCanonical';
+import { unlockCanonicalOnCasper } from '../chains/casper/bridge-core/unlokCanonical';
 
 export const unlockCanonical = expressAsyncHandler(async (req, res) => {
   const { token, recipient, amount, sourceChain, eventId } = req.body ?? {};

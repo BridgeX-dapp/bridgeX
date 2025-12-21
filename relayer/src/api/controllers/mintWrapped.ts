@@ -1,5 +1,5 @@
 import expressAsyncHandler from 'express-async-handler';
-import { mintWrappedOnCasper } from '../chains/casper/bridgeUtils/mintWrapped';
+import { mintWrappedOnCasper } from '../chains/casper/bridge-core/mintWrapped';
 
 export const mintWrapped = expressAsyncHandler(async (req, res) => {
   const { token, recipient, amount, sourceChain, eventId } = req.body;

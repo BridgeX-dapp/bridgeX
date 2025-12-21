@@ -1,5 +1,5 @@
 import expressAsyncHandler from 'express-async-handler';
-import { setTokenConfigOnCasper } from '../chains/casper/bridgeUtils/setTokenConfig';
+import { setTokenConfigOnCasper } from '../chains/casper/bridge-core/setTokenConfig';
 import { toTokenUnits } from '../chains/casper/utils';
 
 export const setTokenConfig = expressAsyncHandler(async (req, res) => {

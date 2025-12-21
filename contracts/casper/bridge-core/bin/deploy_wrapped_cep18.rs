@@ -23,7 +23,7 @@ fn main() {
     // 3) Token parameters (CHANGE PER TOKEN)
     let name = "Wrapped USDC".to_string();
     let symbol = "wUSDC".to_string();
-    let decimals = 18u8;
+    let decimals = 6u8;
     let bridge_core_addr = Address::from_str(
     "hash-30b29dd949ff3d144469c2d4a75c3936f19411dffbeefd516cd99df6094c6c65" // already deployed bridge
 ).unwrap();
