@@ -17,7 +17,7 @@ export function createCasperRestClient() {
 
 export async function fetchLatestCasperBlockHeight(client) {
   const res = await client.get('/blocks');
-  const height = res?.data?.data?.block_height;
+  const height = res.data?.data[0]?.block_height;
 
   if (typeof height !== 'number' || !Number.isFinite(height)) {
     throw new Error('Invalid Casper block height response from /blocks');

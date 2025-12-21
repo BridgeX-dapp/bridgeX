@@ -9,16 +9,21 @@ export async function lockCanonicalOnEvm(params: {
   destAddress: string;
 }) {
   const bridgeCore = getBridgeCoreContract();
+  try {
+    const tx = await bridgeCore.lockCanonical(
+      params.token,
+      normalizeAmount(params.amount),
+      params.destChainId,
+      params.destAddress,
+    );
 
-  const tx = await bridgeCore.lockCanonical(
-    params.token,
-    normalizeAmount(params.amount),
-    params.destChainId,
-    params.destAddress,
-  );
+    logger.info({ txHash: tx.hash }, 'EVM lockCanonical submitted');
 
-  logger.info({ txHash: tx.hash }, 'EVM lockCanonical submitted');
-
-  return { txHash: tx.hash };
+    return { txHash: tx.hash };
+  } catch (error) {
+    logger.error(
+      { Trace: 'Locking canonical on evm', error: 'EVM lockCanonical failed' },
+      error,
+    );
+  }
 }
-

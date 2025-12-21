@@ -30,3 +30,13 @@ export async function enqueueCasperBurnedWrapped(eventId: string) {
     },
   );
 }
+
+export async function enqueueEvmBurnedWrapped(eventId: string) {
+  await bridgeQueue.add(
+    BridgeJobType.PROCESS_EVM_BURNED_WRAPPED,
+    { eventId },
+    {
+      jobId: eventId,
+    },
+  );
+}

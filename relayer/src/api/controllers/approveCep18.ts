@@ -1,9 +1,11 @@
 import expressAsyncHandler from 'express-async-handler';
 import { approveOnCasper } from '../chains/casper/bridge-core/approveCep18';
 import { toTokenUnits } from '../chains/casper/utils';
+import { loadCasperConfig } from '../chains/casper/config';
 
 export const approveTokenCasper = expressAsyncHandler(async (req, res) => {
   const { tokenH, amount } = req.body;
+  const config = loadCasperConfig();
   const token =
     'b80fe386feaaec091183cd0587c5de3fd402e70d3f3b50e28f6b662b9a486d3e';
 
@@ -13,7 +15,7 @@ export const approveTokenCasper = expressAsyncHandler(async (req, res) => {
 
   const result = await approveOnCasper({
     token,
-    spender: process.env.CASPER_CONTRACT_HASH,
+    spender: config.CASPER_BRIDGE_CORE_CONTRACT_PACKAGE_HASH,
     amount: BigInt(amountRaw),
   });
 

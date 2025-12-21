@@ -16,6 +16,7 @@ const casperConfigSchema = z.object({
 
   // BridgeCore
   CASPER_BRIDGE_CORE_HASH: z.string().min(1),
+  CASPER_BRIDGE_CORE_CONTRACT_PACKAGE_HASH: z.string().min(1),
 
   // Backfill
   CASPER_DEPLOY_START_HEIGHT: z.number(),
@@ -38,6 +39,8 @@ export function loadCasperConfig(): CasperConfig {
     CSPR_CLOUD_ACCESS_KEY: process.env.CSPR_CLOUD_ACCESS_KEY,
     CASPER_RPC_URL: process.env.CASPER_RPC_URL,
     CASPER_CHAIN_NAME: process.env.CASPER_CHAIN_NAME,
+    CASPER_BRIDGE_CORE_CONTRACT_PACKAGE_HASH:
+      process.env.CASPER_BRIDGE_CORE_CONTRACT_PACKAGE_HASH,
 
     CASPER_RELAYER_PRIVATE_KEY: process.env.CASPER_RELAYER_PRIVATE_KEY,
 

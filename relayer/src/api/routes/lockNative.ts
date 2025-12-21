@@ -10,6 +10,7 @@ import { mintFromLockEvm } from '../controllers/mintFromLockOnEvm';
 import { unlockFromBurnEvm } from '../controllers/unlockFromBurnOnEvm';
 import { setTokenConfigEvm } from '../controllers/setTokenConfigOnEvm';
 import { approveErc20Evm } from '../controllers/approveErc20OnEvm';
+import { testFetcher } from '../controllers/hello';
 
 const router = express.Router();
 
@@ -22,6 +23,7 @@ router.route('/evm/set-token-config').post(setTokenConfigEvm);
 router.route('/evm/approve-erc20').post(approveErc20Evm);
 
 // Casper
+router.route('/fetcher').get(testFetcher);
 router.route('/casper').post(lockNativeCasper);
 router.route('/approve-cep-18').post(approveTokenCasper);
 router.route('/token-config').post(setTokenConfig);

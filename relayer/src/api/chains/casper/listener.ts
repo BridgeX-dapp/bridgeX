@@ -54,7 +54,7 @@ export function startCasperListener() {
     }
   }, cfg.PING_CHECK_INTERVAL_IN_MILLSECCONDS);
 
-  const statusInterval = setInterval(async () => {
+  /*const statusInterval = setInterval(async () => {
     try {
       const height = await fetchLatestCasperBlockHeight(restClient);
       lastKnownBlockHeight = height;
@@ -65,7 +65,7 @@ export function startCasperListener() {
         'Failed to refresh Casper network status',
       );
     }
-  }, cfg.PING_CHECK_INTERVAL_IN_MILLSECCONDS);
+  }, cfg.PING_CHECK_INTERVAL_IN_MILLSECCONDS);*/
 
   ws.on('close', (code, reason) => {
     logger.warn(
@@ -73,7 +73,7 @@ export function startCasperListener() {
       'Casper WS closed',
     );
     clearInterval(heartbeatInterval);
-    clearInterval(statusInterval);
+    // clearInterval(statusInterval);
     // In production: add reconnect logic with backoff
   });
 

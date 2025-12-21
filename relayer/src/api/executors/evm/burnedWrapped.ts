@@ -1,13 +1,13 @@
 import prisma from '../../lib/utils/clients/prisma-client';
 import { logger } from '../../lib/utils/logger';
-import { mintWrappedOnCasper } from '../../chains/casper/bridge-core/mintWrapped';
+import { unlockCanonicalOnCasper } from '../../chains/casper/bridge-core/unlokCanonical';
 import { loadEvmConfig } from '../../chains/evm/config';
 
 function normalizeCasperHex32(value: string) {
   return value.startsWith('0x') ? value.slice(2) : value;
 }
 
-export async function handleLockedCanonical(eventId: string) {
+export async function handleEvmBurnedWrapped(eventId: string) {
   const start = Date.now();
   const evmConfig = loadEvmConfig();
 
@@ -16,7 +16,7 @@ export async function handleLockedCanonical(eventId: string) {
       eventId,
       stage: 'WORKER_START',
     },
-    'Processing LockedCanonical job',
+    'Processing EVM BurnedWrapped job',
   );
 
   try {
@@ -39,17 +39,15 @@ export async function handleLockedCanonical(eventId: string) {
       throw new Error('destAddress missing on transaction');
     }
 
-    const amount = tx.netAmount ?? tx.amount;
-
     await prisma.transaction.update({
       where: { eventId },
       data: { status: 'EXECUTING' },
     });
 
-    const { deployHash } = await mintWrappedOnCasper({
+    const { deployHash } = await unlockCanonicalOnCasper({
       token: normalizeCasperHex32(tx.token),
       recipient: tx.destAddress,
-      amount,
+      amount: tx.amount,
       sourceChain: evmConfig.EVM_CHAIN_ID,
       eventId: normalizeCasperHex32(eventId),
     });
@@ -69,7 +67,7 @@ export async function handleLockedCanonical(eventId: string) {
         destinationTxHash: deployHash,
         durationMs: Date.now() - start,
       },
-      'LockedCanonical job processed successfully',
+      'EVM BurnedWrapped job processed successfully',
     );
   } catch (error: any) {
     logger.error(
@@ -79,9 +77,9 @@ export async function handleLockedCanonical(eventId: string) {
         message: error?.message,
         stack: error?.stack,
       },
-      'Failed to process LockedCanonical job',
+      'Failed to process EVM BurnedWrapped job',
     );
 
-    throw error; // important so BullMQ can retry
+    throw error;
   }
 }

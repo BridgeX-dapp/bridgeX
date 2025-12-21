@@ -3,7 +3,7 @@ import { toTokenUnits } from '../chains/casper/utils';
 import { lockCanonicalOnCasper } from '../chains/casper/bridge-core/lockCanonical';
 
 export const lockNativeCasper = expressAsyncHandler(async (req, res) => {
-  const { amount, token } = req.body;
+  const { amount = '1', token } = req.body;
   const tokenHash =
     '71ac1a199ad8a5d33bbba9c0fb8357e26db8282c15addfa92db9f36c04b16dc4';
   const recipient =

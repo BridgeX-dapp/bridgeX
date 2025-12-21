@@ -10,4 +10,3 @@ export function normalizeAmount(amount: string | number | bigint): string {
   if (typeof amount === 'string') return amount;
   return amount.toString();
 }
-

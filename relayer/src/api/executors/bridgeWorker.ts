@@ -3,6 +3,7 @@ import { logger } from '../lib/utils/logger';
 import { BridgeJobType } from '../lib/utils/jobs/types';
 import { redisConnection } from '../bullmq-demo/redis';
 import { handleLockedCanonical } from './evm/lockedCanonical';
+import { handleEvmBurnedWrapped } from './evm/burnedWrapped';
 import { handleCasperLockedCanonical } from './casper/lockedCanonical';
 import { handleCasperBurnedWrapped } from './casper/burnedWrapped';
 
@@ -15,6 +16,10 @@ export function startBridgeWorker() {
       switch (job.name) {
         case BridgeJobType.PROCESS_LOCKED_CANONICAL:
           await handleLockedCanonical(job.data.eventId);
+          break;
+
+        case BridgeJobType.PROCESS_EVM_BURNED_WRAPPED:
+          await handleEvmBurnedWrapped(job.data.eventId);
           break;
 
         case BridgeJobType.PROCESS_CASPER_LOCKED_CANONICAL:

@@ -1,24 +1,44 @@
-import { Contract, utils, providers } from 'ethers';
+import { Contract, providers } from 'ethers';
 import { createEvmProviders } from './provider';
-import { getBridgeCoreContract } from './contracts';
 import { logger } from '../../lib/utils/logger';
 import { loadEvmConfig } from './config';
-import { env } from '../../config/env';
 import BridgeCoreArtifact from '../evm/abis/bridgeCore.json';
-import { persistLockedCanonicalEvent } from './persistLockedEvent';
-import prisma from '../../lib/utils/clients/prisma-client';
 import { normalizeLockedCanonical } from './bridge-core/normalizers/normalizeLockedCanonicalEvent';
-import { enqueueLockedCanonical } from '../../lib/utils/jobs/queue/enqueue';
-import { generateEventId } from '../../lib/utils/eventId';
+import { normalizeBurnedWrapped } from './bridge-core/normalizers/normalizeBurnedWrappedEvent';
+import { normalizeMintedWrapped } from './bridge-core/normalizers/normalizeMintedWrappedEvent';
+import { normalizeUnlockedCanonical } from './bridge-core/normalizers/normalizeUnlockedCanonicalEvent';
+import { generateEventIdCore } from '../../lib/utils/crossEventId';
+import {
+  enqueueLockedCanonical,
+  enqueueEvmBurnedWrapped,
+} from '../../lib/utils/jobs/queue/enqueue';
+import {
+  persistEvmSourceEvent,
+  updateEvmDestinationStatus,
+} from './persistEvents';
+import prisma from '../../lib/utils/clients/prisma-client';
+
+async function updateNetworkStatus(blockNumber: number) {
+  await prisma.networkStatus.upsert({
+    where: { chain: 'EVM' },
+    update: {
+      lastProcessedBlock: {
+        set: blockNumber,
+      },
+    },
+    create: {
+      chain: 'EVM',
+      lastProcessedBlock: blockNumber,
+    },
+  });
+}
 
 export async function startEvmListener() {
   const { httpProvider, wsProvider } = createEvmProviders();
 
-  // Prefer WebSocket for real-time events
   const provider: providers.JsonRpcProvider | providers.WebSocketProvider =
     wsProvider ?? httpProvider;
 
-  //const bridgeCore = getBridgeCoreContract();
   const config = loadEvmConfig();
 
   const bridgeCore = new Contract(
@@ -29,28 +49,12 @@ export async function startEvmListener() {
 
   logger.info(
     {
-      wsUrl: process.env.EVM_RPC_WS_URL,
-      httpUrl: process.env.EVM_RPC_HTTP_URL,
-    },
-    'EVM RPC URLs',
-  );
-
-  logger.info({ wsUrl: config.EVM_RPC_WS_URL }, 'Using EVM WebSocket RPC');
-
-  logger.info(
-    {
       provider: wsProvider ? 'websocket' : 'http',
+      wsUrl: config.EVM_RPC_WS_URL,
+      httpUrl: config.EVM_RPC_HTTP_URL,
     },
     'Starting EVM event listener',
   );
-
-  /**
-   * 🔔 Listen for canonical lock events
-   */
-
-  /*provider.on('block', (blockNumber) => {
-    console.log('🧱 New block:', blockNumber);
-  });*/
 
   bridgeCore.on(
     'LockedCanonical',
@@ -77,24 +81,17 @@ export async function startEvmListener() {
           destAddress,
           txHash: event.transactionHash,
         },
-        '🔔 LockedCanonical event received',
+        'LockedCanonical event received',
       );
 
-      // 👉 In next blocks:
-      // - normalize event
-      // - generate eventId
-      // - persist to DB
-      // - enqueue job
-
       try {
-        const blockNumber = event.blockNumber;
-        // 1️⃣ Persist event (idempotent)
         const normalized = normalizeLockedCanonical(event);
-        await persistLockedCanonicalEvent(normalized);
 
-        // 2 enque job
-        // 2.1 generate unique eventId
-        const eventId = generateEventId({
+        if (!normalized.nonce || !normalized.destChainId || !normalized.destAddress) {
+          throw new Error('LockedCanonical missing required fields');
+        }
+
+        const eventId = generateEventIdCore({
           sourceChain: normalized.sourceChain,
           txHash: normalized.txHash,
           logIndex: normalized.logIndex,
@@ -105,38 +102,181 @@ export async function startEvmListener() {
           destAddress: normalized.destAddress,
         });
 
-        // 2.2 add new job
+        await persistEvmSourceEvent({ eventId, ev: normalized });
+
         await enqueueLockedCanonical(eventId);
 
-        // 3 Advance NetworkStatus safely
-        await prisma.networkStatus.upsert({
-          where: { chain: 'EVM' },
-          update: {
-            lastProcessedBlock: {
-              set: blockNumber,
-            },
-          },
-          create: {
-            chain: 'EVM',
-            lastProcessedBlock: blockNumber,
-          },
-        });
-      } catch (error) {
+        await updateNetworkStatus(event.blockNumber);
+      } catch (error: any) {
         logger.error(
           {
             chain: 'EVM',
             stage: 'LIVE_LISTENER',
-            action: 'PERSIST_AND_ADVANCE',
-            eventName: 'LockedCanonical',
+            action: 'LOCKED_CANONICAL',
             txHash: event.transactionHash,
             blockNumber: event.blockNumber,
             logIndex: event.logIndex,
             errorMessage: error?.message,
             errorStack: error?.stack,
-            errorName: error?.name,
-            rawError: error,
           },
           'Failed to process LockedCanonical event',
+        );
+      }
+    },
+  );
+
+  bridgeCore.on(
+    'BurnedWrapped',
+    async (
+      wrappedToken: string,
+      sender: string,
+      amount,
+      nonce,
+      destChainId,
+      destAddress,
+      event,
+    ) => {
+      logger.info(
+        {
+          wrappedToken,
+          sender,
+          amount: amount.toString(),
+          nonce: nonce.toString(),
+          destChainId: destChainId.toString(),
+          destAddress,
+          txHash: event.transactionHash,
+        },
+        'BurnedWrapped event received',
+      );
+
+      try {
+        const normalized = normalizeBurnedWrapped(event);
+
+        if (!normalized.nonce || !normalized.destChainId || !normalized.destAddress) {
+          throw new Error('BurnedWrapped missing required fields');
+        }
+
+        const eventId = generateEventIdCore({
+          sourceChain: normalized.sourceChain,
+          txHash: normalized.txHash,
+          logIndex: normalized.logIndex,
+          token: normalized.token,
+          amount: normalized.amount,
+          nonce: normalized.nonce,
+          destChainId: normalized.destChainId,
+          destAddress: normalized.destAddress,
+        });
+
+        await persistEvmSourceEvent({ eventId, ev: normalized });
+
+        await enqueueEvmBurnedWrapped(eventId);
+
+        await updateNetworkStatus(event.blockNumber);
+      } catch (error: any) {
+        logger.error(
+          {
+            chain: 'EVM',
+            stage: 'LIVE_LISTENER',
+            action: 'BURNED_WRAPPED',
+            txHash: event.transactionHash,
+            blockNumber: event.blockNumber,
+            logIndex: event.logIndex,
+            errorMessage: error?.message,
+            errorStack: error?.stack,
+          },
+          'Failed to process BurnedWrapped event',
+        );
+      }
+    },
+  );
+
+  bridgeCore.on(
+    'MintedWrapped',
+    async (wrappedToken: string, recipient: string, amount, eventId, event) => {
+      logger.info(
+        {
+          wrappedToken,
+          recipient,
+          amount: amount.toString(),
+          eventId: eventId.toString(),
+          txHash: event.transactionHash,
+        },
+        'MintedWrapped event received',
+      );
+
+      try {
+        const normalized = normalizeMintedWrapped(event);
+
+        if (!normalized.eventId) {
+          throw new Error('MintedWrapped missing eventId');
+        }
+
+        await updateEvmDestinationStatus({
+          eventId: normalized.eventId,
+          destinationTxHash: normalized.txHash,
+          eventName: normalized.eventName,
+        });
+
+        await updateNetworkStatus(event.blockNumber);
+      } catch (error: any) {
+        logger.error(
+          {
+            chain: 'EVM',
+            stage: 'LIVE_LISTENER',
+            action: 'MINTED_WRAPPED',
+            txHash: event.transactionHash,
+            blockNumber: event.blockNumber,
+            logIndex: event.logIndex,
+            errorMessage: error?.message,
+            errorStack: error?.stack,
+          },
+          'Failed to process MintedWrapped event',
+        );
+      }
+    },
+  );
+
+  bridgeCore.on(
+    'UnlockedCanonical',
+    async (token: string, recipient: string, amount, eventId, event) => {
+      logger.info(
+        {
+          token,
+          recipient,
+          amount: amount.toString(),
+          eventId: eventId.toString(),
+          txHash: event.transactionHash,
+        },
+        'UnlockedCanonical event received',
+      );
+
+      try {
+        const normalized = normalizeUnlockedCanonical(event);
+
+        if (!normalized.eventId) {
+          throw new Error('UnlockedCanonical missing eventId');
+        }
+
+        await updateEvmDestinationStatus({
+          eventId: normalized.eventId,
+          destinationTxHash: normalized.txHash,
+          eventName: normalized.eventName,
+        });
+
+        await updateNetworkStatus(event.blockNumber);
+      } catch (error: any) {
+        logger.error(
+          {
+            chain: 'EVM',
+            stage: 'LIVE_LISTENER',
+            action: 'UNLOCKED_CANONICAL',
+            txHash: event.transactionHash,
+            blockNumber: event.blockNumber,
+            logIndex: event.logIndex,
+            errorMessage: error?.message,
+            errorStack: error?.stack,
+          },
+          'Failed to process UnlockedCanonical event',
         );
       }
     },
