@@ -2,7 +2,7 @@ import { Contract, providers, Event } from 'ethers';
 import { loadEvmConfig } from './config';
 import BridgeCoreArtifact from '../evm/abis/bridgeCore.json';
 import { logger } from '../../lib/utils/logger';
-import { NormalizedLockedEvent } from './normalizeLockedCanonicalEvent';
+import { NormalizedLockedEvent } from './bridge-core/normalizers/normalizeLockedCanonicalEvent';
 import { BRIDGE_EVENT } from '@prisma/client';
 
 export type LockedCanonicalEvent = {

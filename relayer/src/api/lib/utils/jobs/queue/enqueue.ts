@@ -6,7 +6,27 @@ export async function enqueueLockedCanonical(eventId: string) {
     BridgeJobType.PROCESS_LOCKED_CANONICAL,
     { eventId },
     {
-      jobId: eventId, // 🔑 idempotency
+      jobId: eventId, // dY"` idempotency
+    },
+  );
+}
+
+export async function enqueueCasperLockedCanonical(eventId: string) {
+  await bridgeQueue.add(
+    BridgeJobType.PROCESS_CASPER_LOCKED_CANONICAL,
+    { eventId },
+    {
+      jobId: eventId,
+    },
+  );
+}
+
+export async function enqueueCasperBurnedWrapped(eventId: string) {
+  await bridgeQueue.add(
+    BridgeJobType.PROCESS_CASPER_BURNED_WRAPPED,
+    { eventId },
+    {
+      jobId: eventId,
     },
   );
 }

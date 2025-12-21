@@ -11,7 +11,7 @@ import lockNative from './routes/lockNative';
 import { runEvmBackfillOnce } from './chains/evm/backFillProcessors';
 import { runCasperBackfillOnce } from './chains/casper/backFillProcessors';
 import { generateEventId } from './lib/utils/eventId';
-import { startBridgeWorker } from './executors/evm/bridgeWorker';
+import { startBridgeWorker } from './executors/bridgeWorker';
 import { startCasperListener } from './chains/casper/listener';
 
 dotenv.config();

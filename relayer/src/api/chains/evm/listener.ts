@@ -7,7 +7,7 @@ import { env } from '../../config/env';
 import BridgeCoreArtifact from '../evm/abis/bridgeCore.json';
 import { persistLockedCanonicalEvent } from './persistLockedEvent';
 import prisma from '../../lib/utils/clients/prisma-client';
-import { normalizeLockedCanonical } from './normalizeLockedCanonicalEvent';
+import { normalizeLockedCanonical } from './bridge-core/normalizers/normalizeLockedCanonicalEvent';
 import { enqueueLockedCanonical } from '../../lib/utils/jobs/queue/enqueue';
 import { generateEventId } from '../../lib/utils/eventId';
 

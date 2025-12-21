@@ -4,7 +4,7 @@ import { getEvmBackfillRange } from './backfill';
 import { queryLockedCanonicalEvents } from './backFillEvents';
 import { logger } from '../../lib/utils/logger';
 import { persistLockedCanonicalEvent } from './persistLockedEvent';
-import { normalizeLockedCanonical } from './normalizeLockedCanonicalEvent';
+import { normalizeLockedCanonical } from './bridge-core/normalizers/normalizeLockedCanonicalEvent';
 import { updateEvmNetworkStatus } from './networkStatus';
 import { enqueueLockedCanonical } from '../../lib/utils/jobs/queue/enqueue';
 import { generateEventId } from '../../lib/utils/eventId';

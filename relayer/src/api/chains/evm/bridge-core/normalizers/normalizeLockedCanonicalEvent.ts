@@ -1,26 +1,10 @@
 import { BRIDGE_EVENT } from '@prisma/client';
-import { BigNumber, Event } from 'ethers';
+import { Event } from 'ethers';
+import { NormalizedBridgeEvent } from '../../../../lib/utils/normalizedBridgeEvent';
 
-export interface NormalizedLockedEvent {
-  sourceChain: 'EVM';
-  eventName: BRIDGE_EVENT; //'LockedCanonical';
+export type NormalizedLockedEvent = NormalizedBridgeEvent;
 
-  txHash: string;
-  logIndex: number;
-  blockNumber: number;
-
-  token: string;
-  sender: string;
-  amount: string;
-  netAmount: string;
-  feeAmount: string;
-  nonce: string;
-
-  destChainId: string;
-  destAddress: string;
-}
-
-export function normalizeLockedCanonical(ev: Event): NormalizedLockedEvent {
+export function normalizeLockedCanonical(ev: Event): NormalizedBridgeEvent {
   const {
     token,
     sender,

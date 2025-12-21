@@ -1,34 +1,18 @@
 import { BRIDGE_EVENT } from '@prisma/client';
+import { NormalizedBridgeEvent } from '../../../lib/utils/normalizedBridgeEvent';
 import { CasperContractEventWSMessage } from '../types';
 import { CasperLockedCanonicalPayload } from '../types';
+import { normalizeCasperTxHash } from './utils';
 
 /**
  * Normalized Casper LockedCanonical event
  * Mirrors EVM NormalizedLockedEvent shape
  */
-export interface NormalizedCasperLockedCanonicalEvent {
-  sourceChain: 'CASPER';
-  eventName: BRIDGE_EVENT;
-
-  txHash: string; // deploy_hash
-  logIndex: number; // event_id
-
-  token: string;
-  sender: string;
-  recipient: string;
-
-  amount: string;
-  feeAmount: string;
-  netAmount: string;
-
-  nonce: string;
-  destChainId: string;
-  destAddress: string;
-}
+export type NormalizedCasperLockedCanonicalEvent = NormalizedBridgeEvent;
 
 export function normalizeCasperLockedCanonical(
   msg: CasperContractEventWSMessage,
-): NormalizedCasperLockedCanonicalEvent {
+): NormalizedBridgeEvent {
   // 1️⃣ Type guard
   if (msg.data.name !== 'LockedCanonical') {
     throw new Error('Not a LockedCanonical event');
@@ -39,12 +23,9 @@ export function normalizeCasperLockedCanonical(
   // 2️⃣ Compute amounts
   const amount = payload.amount.toString();
   const feeAmount = payload.fee.toString();
-  const netAmount = (BigInt(amount) - BigInt(feeAmount)).toString();
 
   // 3️⃣ Normalize deploy hash (bytes32-compatible)
-  const txHash = msg.extra.deploy_hash.startsWith('0x')
-    ? msg.extra.deploy_hash
-    : `0x${msg.extra.deploy_hash}`;
+  const txHash = normalizeCasperTxHash(msg.extra.deploy_hash);
 
   return {
     sourceChain: 'CASPER',
@@ -59,7 +40,7 @@ export function normalizeCasperLockedCanonical(
 
     amount,
     feeAmount,
-    netAmount,
+    netAmount: amount,
 
     nonce: payload.nonce.toString(),
     destChainId: payload.destination_chain.toString(),

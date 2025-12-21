@@ -66,3 +66,15 @@ entryPoint: 'mint_wrapped',
 args,
 });
 }
+
+alid dummy Keccak-256 hashes you can safely use for testing 👇
+(each is 32 bytes = 64 hex chars)
+
+Option 1 (simple)
+4f3edf983ac636a65a842ce7c78d9aa706d3b113b37c0f9c8e3b5c1c4a7e9d21
+
+Option 2
+9d2c7a9c3f8b4c7e1a6e0b0a9e4d5c2b7f6a1c8d4e9b2f3a0c7d8e6b5a4f
+
+Option 3 (looks like real bridge event)
+c8e4f1d9b2a7e5c6d3f0a1b9e8c7d6a5f4b3c2e1a9d8f7b6c5a4e3d2

@@ -23,13 +23,8 @@ export async function approveOnCasper(params: {
   const config = loadCasperConfig();
   const signer = await createCasperSigner();
 
-  // Normalize hashes
-  //const tokenHash = normalizeCasperHash(params.token);
-  //const spenderHash = normalizeCasperHash(params.spender);
-
   // 1️⃣ Build args (CEP-18 approve)
   const args = Args.fromMap({
-    // spender: CLValue.newCLByteArray(Hash.fromHex(params.spender).toBytes()),
     spender: clAddressFromContractHash(params.spender),
     amount: CLValue.newCLUInt256(params.amount),
   });

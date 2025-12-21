@@ -2,7 +2,7 @@ import { BRIDGE_EVENT } from '@prisma/client';
 import { PROTOCOL_VERSION } from '../../config/constants';
 import prisma from '../../lib/utils/clients/prisma-client';
 import { generateEventId } from '../../lib/utils/eventId';
-import { NormalizedLockedEvent } from './normalizeLockedCanonicalEvent';
+import { NormalizedLockedEvent } from './bridge-core/normalizers/normalizeLockedCanonicalEvent';
 import { logger } from '../../lib/utils/logger';
 
 export async function persistLockedCanonicalEvent(ev: NormalizedLockedEvent) {

@@ -1,8 +1,8 @@
 // casper/provider.ts
-import axios from 'axios';
+
 import WebSocket from 'ws';
 import { loadCasperConfig } from './config';
-
+import axios from 'axios';
 export function createCasperRestClient() {
   const cfg = loadCasperConfig();
 
@@ -13,6 +13,17 @@ export function createCasperRestClient() {
     },
     timeout: 15_000,
   });
+}
+
+export async function fetchLatestCasperBlockHeight(client) {
+  const res = await client.get('/blocks');
+  const height = res?.data?.data?.block_height;
+
+  if (typeof height !== 'number' || !Number.isFinite(height)) {
+    throw new Error('Invalid Casper block height response from /blocks');
+  }
+
+  return height;
 }
 
 export function createCasperEventStream(): WebSocket {

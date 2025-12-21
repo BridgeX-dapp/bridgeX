@@ -19,7 +19,11 @@ export async function runCasperBackfillOnce() {
   }
 
   // 2) Fetch historical events
-  const events = await queryCasperLockedCanonicalEvents(client, fromBlock, toBlock);
+  const events = await queryCasperLockedCanonicalEvents(
+    client,
+    fromBlock,
+    toBlock,
+  );
 
   logger.info(
     { count: events.length },
@@ -56,4 +60,3 @@ export async function runCasperBackfillOnce() {
   // 4) Only update AFTER successful processing
   await updateCasperNetworkStatus(toBlock);
 }
-
