@@ -13,6 +13,8 @@ import { runCasperBackfillOnce } from './chains/casper/backFillProcessors';
 import { generateEventId } from './lib/utils/eventId';
 import { startBridgeWorker } from './executors/bridgeWorker';
 import { startCasperListener } from './chains/casper/listener';
+import { startTransactionStream } from './realtime/transactions';
+import catalogRoutes from './routes/catalog';
 
 dotenv.config();
 
@@ -37,12 +39,7 @@ const io = new Server(server, {
   cors: { origin: '*', methods: ['GET', 'POST'] },
 });
 
-io.on('connection', (socket) => {
-  console.log('🔌 Socket connected:', socket.id);
-  socket.on('disconnect', () =>
-    console.log('❌ Socket disconnected:', socket.id),
-  );
-});
+startTransactionStream(io);
 
 // expose io to controllers / services
 app.set('io', io);
@@ -52,12 +49,13 @@ app.set('io', io);
  * ---------------------------------- */
 //app.get("/", (_, res) => res.send("BridgeX Relayer Running"));
 app.use('/api/v1/tests', lockNative);
+app.use('/api/v1/catalog', catalogRoutes);
 
 /* ----------------------------------
  * 5. Bootstrap services
  * ---------------------------------- */
 async function bootstrap() {
-  console.log('🚀 Bootstrapping BridgeX relayer...');
+  console.log('dYs? Bootstrapping BridgeX relayer...');
 
   await checkEvmHealth();
   //await runEvmBackfillOnce();
@@ -67,14 +65,14 @@ async function bootstrap() {
   await startCasperListener();
   startBridgeWorker();
 
-  console.log('👂 EVM listener started');
+  console.log('dY`, EVM listener started');
 }
 
 /* ----------------------------------
  * 6. Start server
  * ---------------------------------- */
 server.listen(PORT, async () => {
-  console.log(`🌍 Server running on http://localhost:${PORT}`);
+  console.log(`dYO? Server running on http://localhost:${PORT}`);
   await bootstrap();
 });
 

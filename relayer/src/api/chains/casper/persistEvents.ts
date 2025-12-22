@@ -1,7 +1,8 @@
-import { BRIDGE_EVENT } from '@prisma/client';
+import { BRIDGE_EVENT, CHAIN } from '@prisma/client';
 import prisma from '../../lib/utils/clients/prisma-client';
 import { NormalizedBridgeEvent } from '../../lib/utils/normalizedBridgeEvent';
 import { logger } from '../../lib/utils/logger';
+import { resolveChainRefId } from '../../lib/utils/chainResolver';
 
 const DEFAULT_BLOCK_NUMBER = 0;
 
@@ -25,6 +26,18 @@ export async function persistCasperSourceEvent(params: {
   const blockNumber = params.blockNumber ?? DEFAULT_BLOCK_NUMBER;
 
   const status = getStatusForSourceEvent(ev.eventName);
+  const destChainIdNum =
+    ev.destChainId && Number.isFinite(Number(ev.destChainId))
+      ? Number(ev.destChainId)
+      : null;
+
+  const sourceChainRefId = await resolveChainRefId({
+    kind: CHAIN.CASPER,
+  });
+
+  const destChainRefId = destChainIdNum
+    ? await resolveChainRefId({ chainId: destChainIdNum })
+    : null;
 
   try {
     await prisma.transaction.upsert({
@@ -49,6 +62,9 @@ export async function persistCasperSourceEvent(params: {
 
         destChainId: ev.destChainId ?? '',
         destAddress: ev.destAddress ?? '',
+
+        sourceChainRefId,
+        destChainRefId,
 
         status,
       },

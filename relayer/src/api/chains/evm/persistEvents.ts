@@ -1,7 +1,9 @@
-import { BRIDGE_EVENT } from '@prisma/client';
+import { BRIDGE_EVENT, CHAIN } from '@prisma/client';
 import prisma from '../../lib/utils/clients/prisma-client';
 import { NormalizedBridgeEvent } from '../../lib/utils/normalizedBridgeEvent';
 import { logger } from '../../lib/utils/logger';
+import { resolveChainRefId } from '../../lib/utils/chainResolver';
+import { loadEvmConfig } from './config';
 
 function getStatusForSourceEvent(eventName: BRIDGE_EVENT) {
   switch (eventName) {
@@ -19,12 +21,26 @@ export async function persistEvmSourceEvent(params: {
   ev: NormalizedBridgeEvent;
 }) {
   const { eventId, ev } = params;
+  const evmConfig = loadEvmConfig();
 
   if (ev.blockNumber === undefined) {
     throw new Error('blockNumber is required for EVM events');
   }
 
   const status = getStatusForSourceEvent(ev.eventName);
+  const destChainIdNum =
+    ev.destChainId && Number.isFinite(Number(ev.destChainId))
+      ? Number(ev.destChainId)
+      : null;
+
+  const sourceChainRefId = await resolveChainRefId({
+    kind: CHAIN.EVM,
+    chainId: evmConfig.EVM_CHAIN_ID,
+  });
+
+  const destChainRefId = destChainIdNum
+    ? await resolveChainRefId({ chainId: destChainIdNum })
+    : null;
 
   try {
     await prisma.transaction.upsert({
@@ -49,6 +65,9 @@ export async function persistEvmSourceEvent(params: {
 
         destChainId: ev.destChainId ?? '',
         destAddress: ev.destAddress ?? '',
+
+        sourceChainRefId,
+        destChainRefId,
 
         status,
       },

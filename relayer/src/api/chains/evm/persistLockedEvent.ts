@@ -1,11 +1,14 @@
-import { BRIDGE_EVENT } from '@prisma/client';
+import { BRIDGE_EVENT, CHAIN } from '@prisma/client';
 import { PROTOCOL_VERSION } from '../../config/constants';
 import prisma from '../../lib/utils/clients/prisma-client';
 import { generateEventId } from '../../lib/utils/eventId';
 import { NormalizedLockedEvent } from './bridge-core/normalizers/normalizeLockedCanonicalEvent';
 import { logger } from '../../lib/utils/logger';
+import { resolveChainRefId } from '../../lib/utils/chainResolver';
+import { loadEvmConfig } from './config';
 
 export async function persistLockedCanonicalEvent(ev: NormalizedLockedEvent) {
+  const evmConfig = loadEvmConfig();
   const eventId = generateEventId({
     sourceChain: ev.sourceChain,
     txHash: ev.txHash,
@@ -17,10 +20,22 @@ export async function persistLockedCanonicalEvent(ev: NormalizedLockedEvent) {
     destAddress: ev.destAddress,
   });
 
+  const destChainIdNum =
+    ev.destChainId && Number.isFinite(Number(ev.destChainId))
+      ? Number(ev.destChainId)
+      : null;
+  const sourceChainRefId = await resolveChainRefId({
+    kind: CHAIN.EVM,
+    chainId: evmConfig.EVM_CHAIN_ID,
+  });
+  const destChainRefId = destChainIdNum
+    ? await resolveChainRefId({ chainId: destChainIdNum })
+    : null;
+
   try {
     await prisma.transaction.upsert({
       where: { eventId },
-      update: {}, // idempotent â€” no overwrite
+      update: {}, // idempotent ƒ?" no overwrite
       create: {
         eventId,
 
@@ -41,6 +56,9 @@ export async function persistLockedCanonicalEvent(ev: NormalizedLockedEvent) {
         destChainId: ev.destChainId,
         destAddress: ev.destAddress,
 
+        sourceChainRefId,
+        destChainRefId,
+
         status: 'LOCKED',
       },
     });
@@ -50,9 +68,9 @@ export async function persistLockedCanonicalEvent(ev: NormalizedLockedEvent) {
         source: 'Persist LocketCanonical event',
         action: 'PERSIST_AND_ADVANCE',
         eventName: 'LockedCanonical',
-        errorMessage: error?.message,
-        errorStack: error?.stack,
-        errorName: error?.name,
+        errorMessage: (error as any)?.message,
+        errorStack: (error as any)?.stack,
+        errorName: (error as any)?.name,
         rawError: error,
       },
       'Failed to persist LockedCanonical event',

@@ -1,6 +1,8 @@
+import { CHAIN } from '@prisma/client';
 import prisma from '../../lib/utils/clients/prisma-client';
 import { generateEventId } from '../../lib/utils/eventId';
 import { logger } from '../../lib/utils/logger';
+import { resolveChainRefId } from '../../lib/utils/chainResolver';
 import { NormalizedCasperLockedCanonicalBackfillEvent } from './backFillEvents';
 
 export async function persistCasperLockedCanonicalEvent(
@@ -17,10 +19,21 @@ export async function persistCasperLockedCanonicalEvent(
     destAddress: ev.destAddress,
   });
 
+  const destChainIdNum =
+    ev.destChainId && Number.isFinite(Number(ev.destChainId))
+      ? Number(ev.destChainId)
+      : null;
+  const sourceChainRefId = await resolveChainRefId({
+    kind: CHAIN.CASPER,
+  });
+  const destChainRefId = destChainIdNum
+    ? await resolveChainRefId({ chainId: destChainIdNum })
+    : null;
+
   try {
     await prisma.transaction.upsert({
       where: { eventId },
-      update: {}, // idempotent â€” no overwrite
+      update: {}, // idempotent ƒ?" no overwrite
       create: {
         eventId,
 
@@ -41,6 +54,9 @@ export async function persistCasperLockedCanonicalEvent(
         destChainId: ev.destChainId,
         destAddress: ev.destAddress,
 
+        sourceChainRefId,
+        destChainRefId,
+
         status: 'LOCKED',
       },
     });
@@ -51,9 +67,9 @@ export async function persistCasperLockedCanonicalEvent(
         eventName: 'LockedCanonical',
         txHash: ev.txHash,
         blockNumber: ev.blockNumber,
-        errorMessage: error?.message,
-        errorStack: error?.stack,
-        errorName: error?.name,
+        errorMessage: (error as any)?.message,
+        errorStack: (error as any)?.stack,
+        errorName: (error as any)?.name,
         rawError: error,
       },
       'Failed to persist Casper LockedCanonical event',
@@ -63,4 +79,3 @@ export async function persistCasperLockedCanonicalEvent(
 
   return eventId;
 }
-

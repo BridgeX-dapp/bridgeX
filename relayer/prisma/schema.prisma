@@ -41,7 +41,53 @@ model Transaction {
   createdAt              DateTime     @default(now())
   updatedAt              DateTime     @updatedAt
 
+  sourceChainRefId Int?
+  destChainRefId   Int?
+  tokenRefId       Int?
+
+  sourceChainRef Chain? @relation("SourceChain", fields: [sourceChainRefId], references: [id])
+  destChainRef   Chain? @relation("DestChain", fields: [destChainRefId], references: [id])
+  tokenRef       Token? @relation(fields: [tokenRefId], references: [id])
+
   @@unique([sourceTxHash, sourceLogIndex])
+}
+
+model Chain {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique // e.g., "ethereum", "base", "casper"
+  kind        CHAIN
+  chainId     Int?
+  displayName String?
+  logoUrl     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sourceTransactions Transaction[] @relation("SourceChain")
+  destTransactions   Transaction[] @relation("DestChain")
+  tokens             Token[]
+
+  @@unique([kind, chainId])
+}
+
+model Token {
+  id              Int      @id @default(autoincrement())
+  chainId         Int
+  name            String
+  symbol          String
+  decimals        Int
+  logoUrl         String?
+  contractAddress String?
+  contractHash    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  chain        Chain         @relation(fields: [chainId], references: [id])
+  transactions Transaction[]
+
+  @@unique([chainId, contractAddress])
+  @@unique([chainId, contractHash])
+  @@index([chainId, contractAddress])
+  @@index([chainId, contractHash])
 }
 
 enum CHAIN {
