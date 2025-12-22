@@ -42,22 +42,31 @@ export async function queryLockedCanonicalEvents3(
   logger.info({ count: events.length }, 'Fetched LockedCanonical events');
 
   return events.map((ev) => {
-    const [token, sender, amount, destChainId, destAddress, nonce] = ev.args!;
+    const [
+      token,
+      sender,
+      grossAmount,
+      netAmount,
+      feeAmount,
+      nonce,
+      destChainId,
+      destRecipient,
+    ] = ev.args!;
 
     return {
       token,
       sender,
-      amount: amount.toString(),
+      amount: grossAmount.toString(),
       destChainId: destChainId.toString(),
-      destAddress,
+      destAddress: destRecipient,
       txHash: ev.transactionHash!,
       blockNumber: ev.blockNumber!,
       logIndex: ev.logIndex!,
       sourceChain: 'EVM',
       eventName: BRIDGE_EVENT.LOCKED_CANONICAL,
-      netAmount: null,
-      feeAmount: null,
-      nonce: nonce,
+      netAmount: netAmount.toString(),
+      feeAmount: feeAmount.toString(),
+      nonce: nonce.toString(),
     };
   });
 }

@@ -66,7 +66,7 @@ export async function startEvmListener() {
       feeAmount,
       nonce,
       destChainId,
-      destAddress,
+      destRecipient,
       event,
     ) => {
       logger.info(
@@ -78,7 +78,7 @@ export async function startEvmListener() {
           feeAmount: feeAmount.toString(),
           nonce: nonce.toString(),
           destChainId: destChainId.toString(),
-          destAddress,
+          destRecipient,
           txHash: event.transactionHash,
         },
         'LockedCanonical event received',
@@ -130,20 +130,24 @@ export async function startEvmListener() {
     async (
       wrappedToken: string,
       sender: string,
-      amount,
+      grossAmount,
+      netAmount,
+      feeAmount,
       nonce,
       destChainId,
-      destAddress,
+      destRecipient,
       event,
     ) => {
       logger.info(
         {
           wrappedToken,
           sender,
-          amount: amount.toString(),
+          grossAmount: grossAmount.toString(),
+          netAmount: netAmount.toString(),
+          feeAmount: feeAmount.toString(),
           nonce: nonce.toString(),
           destChainId: destChainId.toString(),
-          destAddress,
+          destRecipient,
           txHash: event.transactionHash,
         },
         'BurnedWrapped event received',

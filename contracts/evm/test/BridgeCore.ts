@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it, beforeEach } from "node:test";
 import { network } from "hardhat";
 import { keccak256, encodeAbiParameters, getAddress } from "viem";
+
+function toBytes32Address(addr: string) {
+  return `0x${addr.slice(2).padStart(64, "0")}`;
+}
 describe("BridgeCore", async () => {
   const { viem } = await network.connect();
   const publicClient = await viem.getPublicClient();
@@ -17,6 +21,7 @@ describe("BridgeCore", async () => {
 
   const DEST_CHAIN_ID = 999n;
   const FEE_BPS = 100n; // 1%
+  let destRecipient: string;
 
   beforeEach(async () => {
     const wallets = await viem.getWalletClients();
@@ -24,6 +29,7 @@ describe("BridgeCore", async () => {
     user = wallets[1];
     relayer = wallets[2];
     feeReceiver = wallets[3];
+    destRecipient = toBytes32Address(user.account.address);
 
 
     // Deploy a mock ERC20 as canonical token
@@ -90,7 +96,7 @@ describe("BridgeCore", async () => {
 
     await viem.assertions.emitWithArgs(
       bridge.write.lockCanonical(
-        [canonical.address, 10_000n, DEST_CHAIN_ID, user.account.address],
+        [canonical.address, 10_000n, DEST_CHAIN_ID, destRecipient],
         { account: user.account }
       ),
       bridge,
@@ -103,7 +109,7 @@ describe("BridgeCore", async () => {
         fee,
         1n,
         DEST_CHAIN_ID,
-        getAddress(user.account.address)
+        destRecipient
       ]
     );
 
@@ -179,7 +185,7 @@ describe("BridgeCore", async () => {
 
     await viem.assertions.emitWithArgs(
       bridge.write.burnWrapped(
-        [wrapped.address, 500n, DEST_CHAIN_ID, user.account.address],
+        [wrapped.address, 500n, DEST_CHAIN_ID, destRecipient],
         { account: user.account }
       ),
       bridge,
@@ -188,9 +194,11 @@ describe("BridgeCore", async () => {
         getAddress(wrapped.address),
         getAddress(user.account.address),
         500n,
+        500n,
+        0n,
         1n,
         DEST_CHAIN_ID,
-        getAddress(user.account.address)
+        destRecipient
       ]
     );
 
@@ -209,7 +217,7 @@ describe("BridgeCore", async () => {
       { account: user.account }
     );
     await bridge.write.lockCanonical(
-      [canonical.address, 1000n, DEST_CHAIN_ID, user.account.address],
+      [canonical.address, 1000n, DEST_CHAIN_ID, destRecipient],
       { account: user.account }
     );
 
@@ -243,7 +251,7 @@ describe("BridgeCore", async () => {
 
     await assert.rejects(async () => {
       await bridge.write.lockCanonical(
-        [canonical.address, 1n, DEST_CHAIN_ID, user.account.address],
+        [canonical.address, 1n, DEST_CHAIN_ID, destRecipient],
         { account: user.account }
       );
     });
@@ -260,7 +268,7 @@ describe("BridgeCore", async () => {
     );
 
     await bridge.write.lockCanonical(
-      [canonical.address, 1_000n, DEST_CHAIN_ID, user.account.address],
+      [canonical.address, 1_000n, DEST_CHAIN_ID, destRecipient],
       { account: user.account }
     );
 

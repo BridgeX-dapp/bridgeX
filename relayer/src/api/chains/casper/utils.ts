@@ -31,3 +31,18 @@ export function clAddressFromPublicKey(pkHex: string) {
 
   return CLValue.newCLKey(key);
 }
+
+export function clAddressFromAccountHash(accountHashHex: string) {
+  const clean = accountHashHex.startsWith('0x')
+    ? accountHashHex.slice(2)
+    : accountHashHex;
+  if (clean.length !== 64) {
+    throw new Error('accountHash must be 32 bytes hex');
+  }
+  const hashBytes = Hash.fromHex(clean).toBytes();
+  const keyBytes = new Uint8Array(1 + hashBytes.length);
+  keyBytes[0] = 0x00; // Account
+  keyBytes.set(hashBytes, 1);
+  const key = Key.fromBytes(keyBytes).result;
+  return CLValue.newCLKey(key);
+}

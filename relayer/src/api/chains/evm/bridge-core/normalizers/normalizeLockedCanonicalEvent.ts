@@ -1,6 +1,7 @@
 import { BRIDGE_EVENT } from '@prisma/client';
 import { Event } from 'ethers';
 import { NormalizedBridgeEvent } from '../../../../lib/utils/normalizedBridgeEvent';
+import { normalizeBytes32 } from '../utils';
 
 export type NormalizedLockedEvent = NormalizedBridgeEvent;
 
@@ -13,7 +14,7 @@ export function normalizeLockedCanonical(ev: Event): NormalizedBridgeEvent {
     feeAmount,
     nonce,
     destChainId,
-    destAddress,
+    destRecipient,
   } = ev.args!;
 
   return {
@@ -32,6 +33,6 @@ export function normalizeLockedCanonical(ev: Event): NormalizedBridgeEvent {
     nonce: nonce.toString(),
 
     destChainId: destChainId.toString(),
-    destAddress,
+    destAddress: normalizeBytes32(destRecipient),
   };
 }

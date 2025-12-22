@@ -76,8 +76,8 @@ export async function queryCasperLockedCanonicalEvents(
     limit: 250,
   };
 
-  if (cfg.CASPER_CONTRACT_HASH) {
-    params.contract_hash = cfg.CASPER_CONTRACT_HASH;
+  if (cfg.CASPER_BRIDGE_CORE_HASH) {
+    params.contract_hash = cfg.CASPER_BRIDGE_CORE_HASH;
   }
   if (cfg.CASPER_CONTRACT_PACKAGE_HASH) {
     params.contract_package_hash = cfg.CASPER_CONTRACT_PACKAGE_HASH;
@@ -144,4 +144,3 @@ export async function queryCasperLockedCanonicalEvents(
   logger.info({ count: out.length }, 'Finished CASPER backfill query');
   return out;
 }
-

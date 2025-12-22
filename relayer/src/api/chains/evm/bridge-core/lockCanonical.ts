@@ -1,12 +1,12 @@
 import { logger } from '../../../lib/utils/logger';
 import { getBridgeCoreContract } from '../contracts';
-import { normalizeAmount } from './utils';
+import { normalizeAmount, normalizeRecipientBytes32 } from './utils';
 
 export async function lockCanonicalOnEvm(params: {
   token: string;
   amount: string | number | bigint;
   destChainId: number;
-  destAddress: string;
+  destRecipient: string;
 }) {
   const bridgeCore = getBridgeCoreContract();
   try {
@@ -14,7 +14,7 @@ export async function lockCanonicalOnEvm(params: {
       params.token,
       normalizeAmount(params.amount),
       params.destChainId,
-      params.destAddress,
+      normalizeRecipientBytes32(params.destRecipient),
     );
 
     logger.info({ txHash: tx.hash }, 'EVM lockCanonical submitted');

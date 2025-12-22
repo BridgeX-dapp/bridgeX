@@ -23,7 +23,7 @@ const casperConfigSchema = z.object({
   CASPER_REORG_BUFFER: z.number(),
 
   // filter target (use ONE of them, but package hash is recommended)
-  CASPER_CONTRACT_HASH: z.string().min(1).optional(),
+
   CASPER_CONTRACT_PACKAGE_HASH: z.string().min(1).optional(),
   PING_CHECK_INTERVAL_IN_MILLSECCONDS: z.number(),
 });
@@ -52,7 +52,6 @@ export function loadCasperConfig(): CasperConfig {
     CASPER_REORG_BUFFER: Number(process.env.CASPER_REORG_BUFFER ?? 2),
     PING_CHECK_INTERVAL_IN_MILLSECCONDS: 60000,
     // filter target (use ONE of them, but package hash is recommended)
-    CASPER_CONTRACT_HASH: process.env.CASPER_CONTRACT_HASH,
     CASPER_CONTRACT_PACKAGE_HASH: process.env.CASPER_CONTRACT_PACKAGE_HASH,
   });
 
@@ -64,11 +63,11 @@ export function loadCasperConfig(): CasperConfig {
   const cfg = parsed.data;
 
   // enforce exactly one filter set
-  const hasHash = !!cfg.CASPER_CONTRACT_HASH;
+  const hasHash = !!cfg.CASPER_BRIDGE_CORE_HASH;
   const hasPkg = !!cfg.CASPER_CONTRACT_PACKAGE_HASH;
   if (Number(hasHash) + Number(hasPkg) !== 1) {
     throw new Error(
-      'Set exactly one of CASPER_CONTRACT_HASH or CASPER_CONTRACT_PACKAGE_HASH',
+      'Set exactly one of CASPER_BRIDGE_CORE_HASH or CASPER_CONTRACT_PACKAGE_HASH',
     );
   }
 

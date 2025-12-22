@@ -4,6 +4,7 @@ import { approveTokenCasper } from '../controllers/approveCep18';
 import { setTokenConfig } from '../controllers/setTokenConfig';
 import { mintWrapped } from '../controllers/mintWrapped';
 import { debugGetTokenConfig } from '../controllers/debugTokenConfig';
+import { burnWrappedCasper } from '../controllers/burnWrappedOnCasper';
 import { lockCanonicalEvm } from '../controllers/lockCanonicalOnEvm';
 import { burnWrappedEvm } from '../controllers/burnWrappedOnEvm';
 import { mintFromLockEvm } from '../controllers/mintFromLockOnEvm';
@@ -28,6 +29,7 @@ router.route('/casper').post(lockNativeCasper);
 router.route('/approve-cep-18').post(approveTokenCasper);
 router.route('/token-config').post(setTokenConfig);
 router.route('/mint-wrapped').post(mintWrapped);
+router.route('/burn-wrapped').post(burnWrappedCasper);
 router.route('/debug').post(debugGetTokenConfig);
 
 export default router;

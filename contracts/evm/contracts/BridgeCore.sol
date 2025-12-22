@@ -64,7 +64,7 @@ contract BridgeCore is Ownable, Pausable, ReentrancyGuard {
         uint256 feeAmount,
         uint256 nonce,
         uint256 destChainId,
-        address indexed destAddress
+        bytes32 indexed destRecipient
     );
 
     /// @notice Emitted when canonical tokens are unlocked on this chain.
@@ -87,10 +87,12 @@ contract BridgeCore is Ownable, Pausable, ReentrancyGuard {
     event BurnedWrapped(
         address indexed wrappedToken,
         address indexed sender,
-        uint256 amount,
+        uint256 grossAmount,
+        uint256 netAmount,
+        uint256 feeAmount,
         uint256 nonce,
         uint256 destChainId,
-        address indexed destAddress
+        bytes32 indexed destRecipient
     );
 
     event FeesWithdrawn(
@@ -113,8 +115,8 @@ contract BridgeCore is Ownable, Pausable, ReentrancyGuard {
     /// @notice Per-token configuration.
     mapping(address => TokenConfig) public tokenConfigs;
 
-    /// @notice Per-token nonces for user-initiated flows (lock/burn).
-    mapping(address => uint256) public nonces;
+    /// @notice Global nonce for user-initiated flows (lock/burn).
+    uint256 public nonce;
 
     /// @notice EventId replay protection: true if a cross-chain event has been processed.
     mapping(bytes32 => bool) public processedEvents;
@@ -262,7 +264,7 @@ contract BridgeCore is Ownable, Pausable, ReentrancyGuard {
         address token,
         uint256 amount,
         uint256 destChainId,
-        address destAddress
+        bytes32 destRecipient
     ) external whenNotPaused nonReentrant {
         TokenConfig memory cfg = tokenConfigs[token];
 
@@ -282,7 +284,7 @@ contract BridgeCore is Ownable, Pausable, ReentrancyGuard {
             collectedFees[token] += feeAmount;
         }
 
-        uint256 nonce = ++nonces[token];
+        uint256 newNonce = ++nonce;
 
         emit LockedCanonical(
             token,
@@ -290,9 +292,9 @@ contract BridgeCore is Ownable, Pausable, ReentrancyGuard {
             amount,
             netAmount,
             feeAmount,
-            nonce,
+            newNonce,
             destChainId,
-            destAddress
+            destRecipient
         );
         // Relayer will observe this event, compute eventId, and instruct the
         // destination chain to mint/unlock `netAmount`.
@@ -309,7 +311,7 @@ contract BridgeCore is Ownable, Pausable, ReentrancyGuard {
         address wrappedToken,
         uint256 amount,
         uint256 destChainId,
-        address destAddress
+        bytes32 destRecipient
     ) external whenNotPaused nonReentrant {
         TokenConfig memory cfg = tokenConfigs[wrappedToken];
 
@@ -324,15 +326,19 @@ contract BridgeCore is Ownable, Pausable, ReentrancyGuard {
         IERC20(wrappedToken).safeTransferFrom(msg.sender, address(this), amount);
         IWrappedToken(wrappedToken).burn(amount);
 
-        uint256 nonce = ++nonces[wrappedToken];
+        uint256 newNonce = ++nonce;
+        uint256 feeAmount = 0;
+        uint256 netAmount = amount;
 
         emit BurnedWrapped(
             wrappedToken,
             msg.sender,
             amount,
-            nonce,
+            netAmount,
+            feeAmount,
+            newNonce,
             destChainId,
-            destAddress
+            destRecipient
         );
         // Relayer observes this event and instructs the canonical chain
         // to unlock exactly `amount` native tokens to `destAddress`.

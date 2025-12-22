@@ -1,12 +1,12 @@
 import { logger } from '../../../lib/utils/logger';
 import { getBridgeCoreContract } from '../contracts';
-import { normalizeAmount } from './utils';
+import { normalizeAmount, normalizeRecipientBytes32 } from './utils';
 
 export async function burnWrappedOnEvm(params: {
   wrappedToken: string;
   amount: string | number | bigint;
   destChainId: number;
-  destAddress: string;
+  destRecipient: string;
 }) {
   const bridgeCore = getBridgeCoreContract();
 
@@ -14,11 +14,10 @@ export async function burnWrappedOnEvm(params: {
     params.wrappedToken,
     normalizeAmount(params.amount),
     params.destChainId,
-    params.destAddress,
+    normalizeRecipientBytes32(params.destRecipient),
   );
 
   logger.info({ txHash: tx.hash }, 'EVM burnWrapped submitted');
 
   return { txHash: tx.hash };
 }
-

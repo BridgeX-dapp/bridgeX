@@ -63,7 +63,7 @@ async function bootstrap() {
   // Start listeners ONCE
   await startEvmListener();
   await startCasperListener();
-  startBridgeWorker();
+  await startBridgeWorker();
 
   console.log('dY`, EVM listener started');
 }

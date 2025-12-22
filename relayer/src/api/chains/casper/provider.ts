@@ -31,8 +31,8 @@ export function createCasperEventStream(): WebSocket {
 
   const params: string[] = [];
 
-  if (cfg.CASPER_CONTRACT_HASH) {
-    params.push(`contract_hash=${cfg.CASPER_CONTRACT_HASH}`);
+  if (cfg.CASPER_BRIDGE_CORE_HASH) {
+    params.push(`contract_hash=${cfg.CASPER_BRIDGE_CORE_HASH}`);
   }
 
   if (cfg.CASPER_CONTRACT_PACKAGE_HASH) {

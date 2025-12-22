@@ -57,7 +57,7 @@ export async function queryLockedCanonicalEvents(
        *   uint256 feeAmount,
        *   uint256 nonce,
        *   uint256 destChainId,
-       *   address destAddress
+       *   bytes32 destRecipient
        * )
        */
       const [
@@ -68,7 +68,7 @@ export async function queryLockedCanonicalEvents(
         feeAmount,
         nonce,
         destChainId,
-        destAddress,
+        destRecipient,
       ] = ev.args!;
 
       allEvents.push({
@@ -83,7 +83,7 @@ export async function queryLockedCanonicalEvents(
         nonce: nonce.toString(),
 
         destChainId: destChainId.toString(),
-        destAddress,
+        destAddress: destRecipient,
 
         txHash: ev.transactionHash!,
         blockNumber: ev.blockNumber!,

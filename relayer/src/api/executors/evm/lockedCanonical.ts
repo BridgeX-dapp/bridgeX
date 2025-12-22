@@ -2,9 +2,17 @@ import prisma from '../../lib/utils/clients/prisma-client';
 import { logger } from '../../lib/utils/logger';
 import { mintWrappedOnCasper } from '../../chains/casper/bridge-core/mintWrapped';
 import { loadEvmConfig } from '../../chains/evm/config';
+import { resolveDestinationToken } from '../../lib/utils/tokenMapping';
 
 function normalizeCasperHex32(value: string) {
   return value.startsWith('0x') ? value.slice(2) : value;
+}
+
+function assertBytes32Hex(value: string) {
+  const clean = value.startsWith('0x') ? value.slice(2) : value;
+  if (!/^[0-9a-fA-F]{64}$/.test(clean)) {
+    throw new Error('destAddress must be 32 bytes hex');
+  }
 }
 
 export async function handleLockedCanonical(eventId: string) {
@@ -38,8 +46,17 @@ export async function handleLockedCanonical(eventId: string) {
     if (!tx.destAddress) {
       throw new Error('destAddress missing on transaction');
     }
+    assertBytes32Hex(tx.destAddress);
 
     const amount = tx.netAmount ?? tx.amount;
+
+    const { destToken, destChain } = await resolveDestinationToken(tx);
+    if (destChain.kind !== 'CASPER') {
+      throw new Error('destination chain is not CASPER');
+    }
+    if (!destToken.contractHash) {
+      throw new Error('destination token missing contractHash');
+    }
 
     await prisma.transaction.update({
       where: { eventId },
@@ -47,7 +64,7 @@ export async function handleLockedCanonical(eventId: string) {
     });
 
     const { deployHash } = await mintWrappedOnCasper({
-      token: normalizeCasperHex32(tx.token),
+      token: destToken.contractHash,
       recipient: tx.destAddress,
       amount,
       sourceChain: evmConfig.EVM_CHAIN_ID,

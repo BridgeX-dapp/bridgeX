@@ -1,11 +1,14 @@
 import prisma from '../../lib/utils/clients/prisma-client';
 import { logger } from '../../lib/utils/logger';
 import { unlockFromBurnOnEvm } from '../../chains/evm/bridge-core/unlockFromBurn';
+import { resolveDestinationToken } from '../../lib/utils/tokenMapping';
 
-function assertEvmAddress(label: string, value: string) {
-  if (!value?.startsWith('0x')) {
-    throw new Error(`${label} must be an EVM address (0x...)`);
+function bytes32ToEvmAddress(value: string) {
+  const clean = value.startsWith('0x') ? value.slice(2) : value;
+  if (clean.length !== 64) {
+    throw new Error('destRecipient must be 32 bytes hex');
   }
+  return `0x${clean.slice(24)}`; // last 20 bytes
 }
 
 export async function handleCasperBurnedWrapped(eventId: string) {
@@ -39,17 +42,23 @@ export async function handleCasperBurnedWrapped(eventId: string) {
       throw new Error('destAddress missing on transaction');
     }
 
-    assertEvmAddress('token', tx.token);
-    assertEvmAddress('destAddress', tx.destAddress);
+    const recipient = bytes32ToEvmAddress(tx.destAddress);
 
+    const { destToken, destChain } = await resolveDestinationToken(tx);
+    if (destChain.kind !== 'EVM') {
+      throw new Error('destination chain is not EVM');
+    }
+    if (!destToken.contractAddress) {
+      throw new Error('destination token missing contractAddress');
+    }
     await prisma.transaction.update({
       where: { eventId },
       data: { status: 'EXECUTING' },
     });
 
     const { txHash } = await unlockFromBurnOnEvm({
-      token: tx.token,
-      recipient: tx.destAddress,
+      token: destToken.contractAddress,
+      recipient,
       amount: tx.amount,
       eventId,
     });

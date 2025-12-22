@@ -9,7 +9,7 @@ export const lockNative = expressAsyncHandler(async (req, res) => {
       '0xc674Fc371792581A12Cd9F452eD7EC24Fba6e7dD',
       10,
       20,
-      '0x4c9972f2aa16b643440488a788e933c139ff0323',
+      '0x0000000000000000000000004c9972f2aa16b643440488a788e933c139ff0323',
     );
   };
 

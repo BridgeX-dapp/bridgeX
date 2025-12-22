@@ -25,8 +25,10 @@ export interface CasperContractEventWSMessage {
 export interface CasperLockedCanonicalPayload {
   token: string;
   sender: string;
-  recipient: string;
-  amount: string;
+  recipient: string | number[] | Uint8Array;
+  amount?: string;
+  gross_amount?: string;
+  net_amount?: string;
   fee: string;
   destination_chain: number;
   nonce: number;

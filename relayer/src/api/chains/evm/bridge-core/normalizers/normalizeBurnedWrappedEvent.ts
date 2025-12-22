@@ -1,15 +1,18 @@
 import { BRIDGE_EVENT } from '@prisma/client';
 import { Event } from 'ethers';
 import { NormalizedBridgeEvent } from '../../../../lib/utils/normalizedBridgeEvent';
+import { normalizeBytes32 } from '../utils';
 
 export function normalizeBurnedWrapped(ev: Event): NormalizedBridgeEvent {
   const {
     wrappedToken,
     sender,
-    amount,
+    grossAmount,
+    netAmount,
+    feeAmount,
     nonce,
     destChainId,
-    destAddress,
+    destRecipient,
   } = ev.args!;
 
   return {
@@ -22,11 +25,12 @@ export function normalizeBurnedWrapped(ev: Event): NormalizedBridgeEvent {
 
     token: wrappedToken,
     sender,
-    amount: amount.toString(),
+    amount: grossAmount.toString(),
+    netAmount: netAmount.toString(),
+    feeAmount: feeAmount.toString(),
     nonce: nonce.toString(),
 
     destChainId: destChainId.toString(),
-    destAddress,
+    destAddress: normalizeBytes32(destRecipient),
   };
 }
-

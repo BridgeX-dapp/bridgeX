@@ -11,37 +11,34 @@ import {
 import { loadCasperConfig } from '../config';
 import { createCasperSigner } from '../signer';
 import { clAddressFromContractHash } from '../utils';
-import { logger } from '../../../lib/utils/logger';
 
-export async function lockCanonicalOnCasper(params: {
+export async function burnWrappedOnCasper(params: {
   token: string;
   amount: bigint;
   dstChainId: number;
   recipient: string; // 32-byte hex
 }) {
   const config = loadCasperConfig();
-
   const signer = await createCasperSigner();
-  //token: CLValue.newCLPublicKey(PublicKey.fromHex(params.recipient)),
-  // 1️⃣ Build args (names MUST match Odra exactly)
+
+  const recipientBytes = Uint8Array.from(
+    Buffer.from(params.recipient.replace(/^0x/, ''), 'hex'),
+  );
+
   const args = Args.fromMap({
     token: clAddressFromContractHash(params.token),
     amount: CLValue.newCLUInt256(params.amount),
     destination_chain: CLValue.newCLUInt32(params.dstChainId),
-    recipient: CLValue.newCLByteArray(
-      Uint8Array.from(Buffer.from(params.recipient.replace(/^0x/, ''), 'hex')),
-    ),
+    recipient: CLValue.newCLByteArray(recipientBytes),
   });
 
-  // 2️⃣ Describe execution
   const session = new ExecutableDeployItem();
   session.storedContractByHash = new StoredContractByHash(
     ContractHash.newContract(config.CASPER_BRIDGE_CORE_HASH),
-    'lock_canonical',
+    'burn_wrapped',
     args,
   );
 
-  // 3️⃣ Build deploy
   const header = DeployHeader.default();
   header.account = signer.publicKey;
   header.chainName = config.CASPER_CHAIN_NAME;
@@ -52,17 +49,7 @@ export async function lockCanonicalOnCasper(params: {
   );
 
   const deploy = Deploy.makeDeploy(header, payment, session);
-
-  // 4️⃣ Sign & submit
   deploy.sign(signer.privateKey);
-  const result = await signer.rpcClient.putDeploy(deploy);
 
-  logger.info(
-    {
-      source: 'Casper deploy',
-    },
-    result.deployHash.toHex(),
-  );
-
-  return result;
+  return signer.rpcClient.putDeploy(deploy);
 }

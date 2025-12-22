@@ -11,11 +11,11 @@ import {
 
 import { createCasperSigner } from '../signer';
 import { loadCasperConfig } from '../config';
-import { clAddressFromContractHash, clAddressFromPublicKey } from '../utils';
+import { clAddressFromAccountHash, clAddressFromContractHash } from '../utils';
 
 export async function mintWrappedOnCasper(params: {
   token: string; // contract hash (hex)
-  recipient: string; // Casper public key (hex)
+  recipient: string; // 32-byte account-hash hex
   amount: string; // raw units (string!)
   sourceChain: number;
   eventId: string; // 32-byte hex string
@@ -33,7 +33,7 @@ export async function mintWrappedOnCasper(params: {
   // 1️⃣ Build args
   const args = Args.fromMap({
     token: clAddressFromContractHash(params.token),
-    recipient: clAddressFromPublicKey(params.recipient),
+    recipient: clAddressFromAccountHash(params.recipient),
     amount: CLValue.newCLUInt256(params.amount),
     source_chain: CLValue.newCLUInt32(params.sourceChain),
     event_id: CLValue.newCLByteArray(eventIdBytes),

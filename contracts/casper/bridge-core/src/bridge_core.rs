@@ -48,8 +48,9 @@ pub enum Error {
 pub struct LockedCanonical {
     pub token: Address,
     pub sender: Address,
-    pub recipient: Address,
-    pub amount: U256,
+    pub recipient: [u8; 32],
+    pub gross_amount: U256,
+    pub net_amount: U256,
     pub fee: U256,
     pub destination_chain: u32,
     pub nonce: u64,
@@ -60,8 +61,9 @@ pub struct LockedCanonical {
 pub struct BurnedWrapped {
     pub token: Address,
     pub sender: Address,
-    pub recipient: Address,
-    pub amount: U256,
+    pub recipient: [u8; 32],
+    pub gross_amount: U256,
+    pub net_amount: U256,
     pub fee: U256,
     pub destination_chain: u32,
     pub nonce: u64,
@@ -194,7 +196,7 @@ impl BridgeCore {
         token: Address,
         amount: &U256,
         destination_chain: u32,
-        recipient: Address
+        recipient: [u8; 32]
     ) {
         self.pause.require_not_paused();
 
@@ -213,6 +215,7 @@ impl BridgeCore {
         let fee_receiver = self.fee_receiver.get_or_revert_with(Error::FeeReceiverNotSet);
         let fee_bps = self.fee_bps.get_or_default();
         let fee = self.compute_fee(amount, fee_bps);
+        let gross_amount = *amount;
         let net_amount = amount.checked_sub(fee).unwrap_or_else(|| U256::zero());
 
         // Pull tokens from user into bridge contract.
@@ -233,7 +236,8 @@ impl BridgeCore {
             token,
             sender: caller,
             recipient,
-            amount: net_amount,
+            gross_amount,
+            net_amount,
             fee,
             destination_chain,
             nonce,
@@ -246,7 +250,7 @@ impl BridgeCore {
         token: Address,
         amount: &U256,
         destination_chain: u32,
-        recipient: Address
+        recipient: [u8; 32]
     ) {
         self.pause.require_not_paused();
 
@@ -265,6 +269,7 @@ impl BridgeCore {
         let fee_receiver = self.fee_receiver.get_or_revert_with(Error::FeeReceiverNotSet);
         let fee_bps = self.fee_bps.get_or_default();
         let fee = self.compute_fee(amount, fee_bps);
+        let gross_amount = *amount;
         let net_amount = amount.checked_sub(fee).unwrap_or_else(|| U256::zero());
 
         let mut token_ref = WrappedTokenContractRef::new(self.env(), token);
@@ -282,7 +287,8 @@ impl BridgeCore {
             token,
             sender: caller,
             recipient,
-            amount: net_amount,
+            gross_amount,
+            net_amount,
             fee,
             destination_chain,
             nonce,
@@ -710,11 +716,11 @@ fn whitelist_canonical(
     fn lock_canonical_happy_path() {
         let env = env();
 
-        // Accounts: admin, fee_receiver, user, recipient
+        // Accounts: admin, fee_receiver, user
         let admin = env.get_account(0);
         let fee_receiver = env.get_account(1);
         let user = env.get_account(2);
-        let recipient = env.get_account(3);
+        let recipient = [3u8; 32];
 
         // Deploy canonical token; give initial_supply to `user`.
         let initial_supply = 1_000u64;
@@ -790,7 +796,8 @@ assert!(
             token: canonical.address(),
             sender: user,
             recipient,
-            amount: expected_net,
+            gross_amount: amount_to_lock,
+            net_amount: expected_net,
             fee: expected_fee,
             destination_chain: dest_chain,
             // nonce is auto-incremented, first call should be 1
@@ -812,6 +819,7 @@ assert!(
         let admin = env.get_account(0);
         let fee_receiver = env.get_account(1);
         let user = env.get_account(2);
+        let recipient = [4u8; 32];
 
         // Deploy canonical token but DO NOT whitelist it
         let mut canonical = deploy_canonical_token(
@@ -836,7 +844,7 @@ assert!(
             canonical.address(),
             &amount,
             2,
-            env.get_account(3),
+            recipient,
         )
         .unwrap_err();
 
@@ -1021,6 +1029,7 @@ assert_eq!(err, Error::EventAlreadyHandled.into());
         );
 
         let amount = U256::from(100u64);
+        let recipient = [5u8; 32];
         env.set_caller(user);
         canonical.approve(&bridge.address(), &amount);
 
@@ -1036,7 +1045,7 @@ assert_eq!(err, Error::EventAlreadyHandled.into());
     canonical.address(),
     &amount,
     2,
-    env.get_account(3),
+    recipient,
 );
 
 assert!(
@@ -1055,7 +1064,7 @@ assert!(
     canonical.address(),
     &amount,
     2,
-    env.get_account(3),
+    recipient,
 );
 
 assert!(

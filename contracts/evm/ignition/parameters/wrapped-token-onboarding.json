@@ -5,9 +5,9 @@
     "feeReceiver": "0x4c9972f2aa16b643440488a788e933c139ff0323",
     "feeBps": 100
   },
-  "TokenOnboardingModule": {
+  "WrappedTokenOnboardingModule": {
     "token": "0x55c20A036F2900e4D34dD7A46faA2176F5cd39Dd",
     "minAmount": 1,
-    "maxAmount": 10000000000
+    "maxAmount": 1000000000
   }
 }

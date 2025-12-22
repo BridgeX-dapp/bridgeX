@@ -1,11 +1,14 @@
 import prisma from '../../lib/utils/clients/prisma-client';
 import { logger } from '../../lib/utils/logger';
 import { mintFromLockOnEvm } from '../../chains/evm/bridge-core/mintFromLock';
+import { resolveDestinationToken } from '../../lib/utils/tokenMapping';
 
-function assertEvmAddress(label: string, value: string) {
-  if (!value?.startsWith('0x')) {
-    throw new Error(`${label} must be an EVM address (0x...)`);
+function bytes32ToEvmAddress(value: string) {
+  const clean = value.startsWith('0x') ? value.slice(2) : value;
+  if (clean.length !== 64) {
+    throw new Error('destRecipient must be 32 bytes hex');
   }
+  return `0x${clean.slice(24)}`; // last 20 bytes
 }
 
 export async function handleCasperLockedCanonical(eventId: string) {
@@ -39,10 +42,16 @@ export async function handleCasperLockedCanonical(eventId: string) {
       throw new Error('destAddress missing on transaction');
     }
 
-    assertEvmAddress('token', tx.token);
-    assertEvmAddress('destAddress', tx.destAddress);
-
     const amount = tx.netAmount ?? tx.amount;
+    const recipient = bytes32ToEvmAddress(tx.destAddress);
+
+    const { destToken, destChain } = await resolveDestinationToken(tx);
+    if (destChain.kind !== 'EVM') {
+      throw new Error('destination chain is not EVM');
+    }
+    if (!destToken.contractAddress) {
+      throw new Error('destination token missing contractAddress');
+    }
 
     await prisma.transaction.update({
       where: { eventId },
@@ -50,8 +59,8 @@ export async function handleCasperLockedCanonical(eventId: string) {
     });
 
     const { txHash } = await mintFromLockOnEvm({
-      wrappedToken: tx.token,
-      recipient: tx.destAddress,
+      wrappedToken: destToken.contractAddress,
+      recipient,
       amount,
       eventId,
     });

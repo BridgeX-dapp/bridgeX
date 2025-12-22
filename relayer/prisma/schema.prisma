@@ -65,6 +65,8 @@ model Chain {
   sourceTransactions Transaction[] @relation("SourceChain")
   destTransactions   Transaction[] @relation("DestChain")
   tokens             Token[]
+  sourceTokenPairs   TokenPair[]   @relation("SourceChain")
+  destTokenPairs     TokenPair[]   @relation("DestChain")
 
   @@unique([kind, chainId])
 }
@@ -81,13 +83,33 @@ model Token {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  chain        Chain         @relation(fields: [chainId], references: [id])
-  transactions Transaction[]
+  chain            Chain         @relation(fields: [chainId], references: [id])
+  transactions     Transaction[]
+  sourceTokenPairs TokenPair[]   @relation("SourceToken")
+  destTokenPairs   TokenPair[]   @relation("DestToken")
 
   @@unique([chainId, contractAddress])
   @@unique([chainId, contractHash])
   @@index([chainId, contractAddress])
   @@index([chainId, contractHash])
+}
+
+model TokenPair {
+  id            Int      @id @default(autoincrement())
+  sourceChainId Int
+  destChainId   Int
+  sourceTokenId Int
+  destTokenId   Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sourceChain Chain @relation("SourceChain", fields: [sourceChainId], references: [id])
+  destChain   Chain @relation("DestChain", fields: [destChainId], references: [id])
+  sourceToken Token @relation("SourceToken", fields: [sourceTokenId], references: [id])
+  destToken   Token @relation("DestToken", fields: [destTokenId], references: [id])
+
+  @@unique([sourceChainId, sourceTokenId, destChainId])
+  @@index([destChainId, destTokenId])
 }
 
 enum CHAIN {

@@ -11,7 +11,7 @@ import {
 
 import { createCasperSigner } from '../signer';
 import { loadCasperConfig } from '../config';
-import { clAddressFromContractHash, clAddressFromPublicKey } from '../utils';
+import { clAddressFromAccountHash, clAddressFromContractHash } from '../utils';
 
 /** 32-byte hex -> Uint8Array(32) */
 function hexToBytes32(hex: string): Uint8Array {
@@ -27,7 +27,7 @@ function hexToBytes32(hex: string): Uint8Array {
 
 export async function unlockCanonicalOnCasper(params: {
   token: string; // canonical token contract hash (64 hex, no prefix)
-  recipient: string; // Casper public key hex (01.. or 02..)
+  recipient: string; // 32-byte account-hash hex
   amount: string; // U256 decimal string (raw units)
   sourceChain: number; // u32
   eventId: string; // 32-byte hex
@@ -39,11 +39,8 @@ export async function unlockCanonicalOnCasper(params: {
   if (!params.token || params.token.length !== 64) {
     throw new Error('token must be 64-hex contract hash (no prefix)');
   }
-  if (
-    !params.recipient?.startsWith('01') &&
-    !params.recipient?.startsWith('02')
-  ) {
-    throw new Error('recipient must be a Casper public key hex');
+  if (!params.recipient || params.recipient.replace(/^0x/, '').length !== 64) {
+    throw new Error('recipient must be 32 bytes hex (account-hash)');
   }
   if (!/^\d+$/.test(params.amount)) {
     throw new Error('amount must be a decimal string (raw units)');
@@ -54,7 +51,7 @@ export async function unlockCanonicalOnCasper(params: {
   // 1️⃣ Build args (Odra Address => CLKey)
   const args = Args.fromMap({
     token: clAddressFromContractHash(params.token), // Address (contract)
-    recipient: clAddressFromPublicKey(params.recipient), // Address (account)
+    recipient: clAddressFromAccountHash(params.recipient), // Address (account)
     amount: CLValue.newCLUInt256(params.amount), // U256
     source_chain: CLValue.newCLUInt32(params.sourceChain), // u32
     event_id: CLValue.newCLByteArray(eventIdBytes), // [u8;32]

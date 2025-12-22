@@ -2,7 +2,10 @@ import { BRIDGE_EVENT } from '@prisma/client';
 import { NormalizedBridgeEvent } from '../../../lib/utils/normalizedBridgeEvent';
 import { CasperContractEventWSMessage } from '../types';
 import { CasperLockedCanonicalPayload } from '../types';
-import { normalizeCasperTxHash } from './utils';
+import {
+  normalizeCasperRecipientBytes32,
+  normalizeCasperTxHash,
+} from './utils';
 
 /**
  * Normalized Casper LockedCanonical event
@@ -21,7 +24,15 @@ export function normalizeCasperLockedCanonical(
   const payload = msg.data.data as CasperLockedCanonicalPayload;
 
   // 2️⃣ Compute amounts
-  const amount = payload.amount.toString();
+  if (!payload.gross_amount && !payload.amount) {
+    throw new Error('LockedCanonical missing gross/amount');
+  }
+  const amount = payload.gross_amount
+    ? payload.gross_amount.toString()
+    : payload.amount.toString();
+  const netAmount = payload.net_amount
+    ? payload.net_amount.toString()
+    : payload.amount.toString();
   const feeAmount = payload.fee.toString();
 
   // 3️⃣ Normalize deploy hash (bytes32-compatible)
@@ -36,14 +47,14 @@ export function normalizeCasperLockedCanonical(
 
     token: payload.token,
     sender: payload.sender,
-    recipient: payload.recipient,
+    recipient: normalizeCasperRecipientBytes32(payload.recipient),
 
     amount,
     feeAmount,
-    netAmount: amount,
+    netAmount,
 
     nonce: payload.nonce.toString(),
     destChainId: payload.destination_chain.toString(),
-    destAddress: payload.recipient,
+    destAddress: normalizeCasperRecipientBytes32(payload.recipient),
   };
 }

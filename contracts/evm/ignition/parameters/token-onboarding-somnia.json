@@ -7,7 +7,7 @@
   },
   "TokenOnboardingModule": {
     "token": "0xc674Fc371792581A12Cd9F452eD7EC24Fba6e7dD",
-    "minAmount": 10,
-    "maxAmount": 100000
+    "minAmount": 1,
+    "maxAmount": 1000000000
   }
 }
