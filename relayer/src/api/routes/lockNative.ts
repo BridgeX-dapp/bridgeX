@@ -12,6 +12,8 @@ import { unlockFromBurnEvm } from '../controllers/unlockFromBurnOnEvm';
 import { setTokenConfigEvm } from '../controllers/setTokenConfigOnEvm';
 import { approveErc20Evm } from '../controllers/approveErc20OnEvm';
 import { testFetcher } from '../controllers/hello';
+import { getCasperTokenBalance } from '../controllers/getCasperTokenBalance';
+import { getCasperTokenAllowance } from '../controllers/getCasperTokenAllowance';
 
 const router = express.Router();
 
@@ -31,5 +33,7 @@ router.route('/token-config').post(setTokenConfig);
 router.route('/mint-wrapped').post(mintWrapped);
 router.route('/burn-wrapped').post(burnWrappedCasper);
 router.route('/debug').post(debugGetTokenConfig);
+router.route('/casper/token-balance').get(getCasperTokenBalance);
+router.route('/casper/token-allowance').get(getCasperTokenAllowance);
 
 export default router;
