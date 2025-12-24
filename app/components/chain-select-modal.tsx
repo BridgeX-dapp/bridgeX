@@ -1,42 +1,26 @@
 "use client"
 
 import { useState } from "react"
+import type { CatalogChain } from "@/lib/relayer/catalog"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 
-type Network = {
-  id: string
-  name: string
-  logo: string
-}
-
-const NETWORKS: Network[] = [
-  { id: "ethereum", name: "Ethereum", logo: "⟠" },
-  { id: "arbitrum", name: "Arbitrum", logo: "◆" },
-  { id: "optimism", name: "Optimism", logo: "🔴" },
-  { id: "polygon", name: "Polygon", logo: "◇" },
-  { id: "base", name: "Base", logo: "🔵" },
-  { id: "avalanche", name: "Avalanche", logo: "🔺" },
-  { id: "bsc", name: "BNB Chain", logo: "💛" },
-  { id: "fantom", name: "Fantom", logo: "👻" },
-]
-
 type ChainSelectModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSelectChain: (chain: Network) => void
+  onSelectChain: (chain: CatalogChain) => void
   title: string
+  chains: CatalogChain[]
 }
 
-export function ChainSelectModal({ open, onOpenChange, onSelectChain, title }: ChainSelectModalProps) {
+export function ChainSelectModal({ open, onOpenChange, onSelectChain, title, chains }: ChainSelectModalProps) {
   const [search, setSearch] = useState("")
 
-  const filteredNetworks = NETWORKS.filter(
-    (network) =>
-      network.name.toLowerCase().includes(search.toLowerCase()) ||
-      network.id.toLowerCase().includes(search.toLowerCase()),
-  )
+  const filteredChains = chains.filter((chain) => {
+    const label = (chain.displayName ?? chain.name).toLowerCase()
+    return label.includes(search.toLowerCase()) || chain.name.toLowerCase().includes(search.toLowerCase())
+  })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -52,10 +36,10 @@ export function ChainSelectModal({ open, onOpenChange, onSelectChain, title }: C
             className="bg-secondary/50"
           />
           <div className="max-h-[400px] overflow-y-auto space-y-2">
-            {filteredNetworks.map((network) => (
+            {filteredChains.map((chain) => (
               <button
-                key={network.id}
-                onClick={() => onSelectChain(network)}
+                key={chain.id}
+                onClick={() => onSelectChain(chain)}
                 className={cn(
                   "w-full flex items-center gap-3 p-4 rounded-lg",
                   "bg-secondary/30 border border-border",
@@ -64,12 +48,18 @@ export function ChainSelectModal({ open, onOpenChange, onSelectChain, title }: C
                   "group",
                 )}
               >
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xl group-hover:bg-primary/20 transition-colors">
-                  {network.logo}
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold group-hover:bg-primary/20 transition-colors overflow-hidden">
+                  {chain.logoUrl ? (
+                    <img src={chain.logoUrl} alt={chain.name} className="h-10 w-10 object-contain" />
+                  ) : (
+                    (chain.displayName ?? chain.name).slice(0, 2).toUpperCase()
+                  )}
                 </div>
                 <div className="text-left flex-1">
-                  <div className="font-semibold">{network.name}</div>
-                  <div className="text-xs text-muted-foreground capitalize">{network.id}</div>
+                  <div className="font-semibold">{chain.displayName ?? chain.name}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {chain.kind} {chain.chainId ? `• ${chain.chainId}` : ""}
+                  </div>
                 </div>
                 <svg
                   className="w-5 h-5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"

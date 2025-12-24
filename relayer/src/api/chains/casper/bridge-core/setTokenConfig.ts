@@ -14,7 +14,7 @@ import { loadCasperConfig } from '../config';
 import { clAddressFromContractHash, toTokenUnits } from '../utils';
 
 export async function setTokenConfigOnCasper(params: {
-  token: string; // token CONTRACT hash (hex, no prefix)
+  token: string; // token package hash (hex, no prefix)
   isWhitelisted: boolean;
   isCanonical: boolean;
   minAmount: bigint;

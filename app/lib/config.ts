@@ -45,8 +45,17 @@ export type CasperClientConfig = z.infer<typeof casperClientConfigSchema>;
 const evmClientConfigSchema = z.object({
   EVM_WALLETCONNECT_PROJECT_ID: z.string().min(1),
   EVM_DEFAULT_CHAIN_ID: z.coerce.number().int().positive(),
-  SOMNIA_TESTNET_EVM_BRIDGE_CORE_ADDRESS: z.string().min(1),
+  BASE_SEPOLIA_EVM_BRIDGE_CORE_ADDRESS: z.string().min(1),
+  ARBITRUM_SEPOLIA_EVM_BRIDGE_CORE_ADDRESS: z.string().min(1),
+  POLYGON_AMOY_EVM_BRIDGE_CORE_ADDRESS: z.string().min(1),
   EVM_BRIDGE_CORE_ADDRESS: z.string().optional(),
+  ALCHEMY_API_KEY: z.string().min(1),
+  BASE_SEPOLIA_RPC_URL: z.string().url(),
+  BASE_SEPOLIA_WS_RPC_URL: z.string().url(),
+  ARBITRUM_SEPOLIA_RPC_URL: z.string().url(),
+  ARBITRUM_SEPOLIA_WS_RPC_URL: z.string().url(),
+  POLYGON_AMOY_RPC_URL: z.string().url(),
+  POLYGON_AMOY_WS_RPC_URL: z.string().url(),
 });
 
 export type EvmClientConfig = z.infer<typeof evmClientConfigSchema>;
@@ -129,14 +138,20 @@ export function loadCasperConfig(): CasperConfig {
 }
 
 export function loadEvmClientConfig(): EvmClientConfig {
-  const resolvedSomniaAddress =
-    process.env.SOMNIA_TESTNET_EVM_BRIDGE_CORE_ADDRESS ?? process.env.EVM_BRIDGE_CORE_ADDRESS;
-
   const parsed = evmClientConfigSchema.safeParse({
     EVM_WALLETCONNECT_PROJECT_ID: process.env.EVM_WALLETCONNECT_PROJECT_ID,
-    EVM_DEFAULT_CHAIN_ID: process.env.EVM_DEFAULT_CHAIN_ID ?? "50312",
-    SOMNIA_TESTNET_EVM_BRIDGE_CORE_ADDRESS: resolvedSomniaAddress,
+    EVM_DEFAULT_CHAIN_ID: process.env.EVM_DEFAULT_CHAIN_ID ?? "84532",
+    BASE_SEPOLIA_EVM_BRIDGE_CORE_ADDRESS: process.env.BASE_SEPOLIA_EVM_BRIDGE_CORE_ADDRESS,
+    ARBITRUM_SEPOLIA_EVM_BRIDGE_CORE_ADDRESS: process.env.ARBITRUM_SEPOLIA_EVM_BRIDGE_CORE_ADDRESS,
+    POLYGON_AMOY_EVM_BRIDGE_CORE_ADDRESS: process.env.POLYGON_AMOY_EVM_BRIDGE_CORE_ADDRESS,
     EVM_BRIDGE_CORE_ADDRESS: process.env.EVM_BRIDGE_CORE_ADDRESS,
+    ALCHEMY_API_KEY: process.env.ALCHEMY_API_KEY,
+    BASE_SEPOLIA_RPC_URL: process.env.BASE_SEPOLIA_RPC_URL,
+    BASE_SEPOLIA_WS_RPC_URL: process.env.BASE_SEPOLIA_WS_RPC_URL,
+    ARBITRUM_SEPOLIA_RPC_URL: process.env.ARBITRUM_SEPOLIA_RPC_URL,
+    ARBITRUM_SEPOLIA_WS_RPC_URL: process.env.ARBITRUM_SEPOLIA_WS_RPC_URL,
+    POLYGON_AMOY_RPC_URL: process.env.POLYGON_AMOY_RPC_URL,
+    POLYGON_AMOY_WS_RPC_URL: process.env.POLYGON_AMOY_WS_RPC_URL,
   });
 
   if (!parsed.success) {

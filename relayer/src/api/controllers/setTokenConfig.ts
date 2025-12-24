@@ -1,14 +1,25 @@
 import expressAsyncHandler from 'express-async-handler';
 import { setTokenConfigOnCasper } from '../chains/casper/bridge-core/setTokenConfig';
-import { toTokenUnits } from '../chains/casper/utils';
+import { normalizeAmountInput } from '../lib/utils/amount';
 
 export const setTokenConfig = expressAsyncHandler(async (req, res) => {
-  const { token, isWhitelisted, isCanonical, minAmount, maxAmount } = req.body;
+  const {
+    token,
+    isWhitelisted,
+    isCanonical,
+    minAmount,
+    maxAmount,
+    decimals = 6,
+  } = req.body;
 
-  const decimals = 6;
-
-  const minAmountRaw = toTokenUnits(minAmount, decimals).toString();
-  const maxAmountRaw = toTokenUnits(maxAmount, decimals).toString();
+  const minAmountRaw = normalizeAmountInput({
+    amount: minAmount,
+    decimals: Number(decimals),
+  });
+  const maxAmountRaw = normalizeAmountInput({
+    amount: maxAmount,
+    decimals: Number(decimals),
+  });
 
   if (
     !token ||

@@ -1,39 +1,44 @@
 import { providers } from 'ethers';
-import { loadEvmConfig } from './config';
+import { EvmChainConfig, loadEvmConfig } from './config';
 import { logger } from '../../lib/utils/logger';
 import prisma from '../../lib/utils/clients/prisma-client';
 
+function getChainKey(config: EvmChainConfig) {
+  return `evm:${config.name}`;
+}
+
 export async function getEvmBackfillRange(
   provider: providers.Provider,
+  chainConfig?: EvmChainConfig,
 ): Promise<{ fromBlock: number; toBlock: number }> {
-  const config = loadEvmConfig();
+  const config = chainConfig ?? loadEvmConfig();
+  const chainKey = getChainKey(config);
 
   const latestBlock = await provider.getBlockNumber();
 
   const networkStatus = await prisma.networkStatus.findUnique({
-    where: { chain: 'EVM' },
+    where: { chain: chainKey },
   });
 
   let fromBlock: number;
 
   if (!networkStatus) {
-    // 🟢 First run
-    fromBlock = config.EVM_DEPLOY_BLOCK;
+    fromBlock = config.deployBlock;
 
     logger.info(
-      { fromBlock },
-      'No EVM NetworkStatus found — starting from deploy block',
+      { chain: config.name, fromBlock },
+      'No EVM NetworkStatus found; starting from deploy block',
     );
   } else {
     const last = Number(networkStatus.lastProcessedBlock);
+    const deployBlock = config.deployBlock;
+    const reorgBuffer = config.reorgBuffer;
 
-    fromBlock = Math.max(
-      last - config.EVM_REORG_BUFFER,
-      config.EVM_DEPLOY_BLOCK,
-    );
+    fromBlock = Math.max(last - reorgBuffer, deployBlock);
 
     logger.info(
       {
+        chain: config.name,
         lastProcessedBlock: last,
         fromBlock,
       },

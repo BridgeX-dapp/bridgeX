@@ -7,6 +7,8 @@ import { updateCasperNetworkStatus } from './networkStatus';
 import { enqueueLockedCanonical } from '../../lib/utils/jobs/queue/enqueue';
 import { generateEventId } from '../../lib/utils/eventId';
 
+const CASPER_CHAIN_KEY = 'casper:1';
+
 export async function runCasperBackfillOnce() {
   const client = createCasperRestClient();
 
@@ -58,5 +60,5 @@ export async function runCasperBackfillOnce() {
   }
 
   // 4) Only update AFTER successful processing
-  await updateCasperNetworkStatus(toBlock);
+  await updateCasperNetworkStatus(CASPER_CHAIN_KEY, toBlock);
 }

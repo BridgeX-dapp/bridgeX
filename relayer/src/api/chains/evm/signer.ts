@@ -1,12 +1,15 @@
 import { Wallet } from 'ethers';
-import { loadEvmConfig } from './config';
+import { EvmChainConfig, loadEvmConfig } from './config';
 import { createEvmProviders } from './provider';
 
-export function createEvmSigner(): Wallet {
-  const config = loadEvmConfig();
-  const { httpProvider } = createEvmProviders();
+export function createEvmSigner(chainConfig?: EvmChainConfig): Wallet {
+  const config = chainConfig ?? loadEvmConfig();
+  const { httpProvider } = createEvmProviders(chainConfig);
 
-  const signer = new Wallet(config.EVM_RELAYER_PRIVATE_KEY, httpProvider);
+  const signer = new Wallet(
+    config.relayerPrivateKey,
+    httpProvider,
+  );
 
   return signer;
 }

@@ -25,8 +25,8 @@ fn main() {
     // ------------------------------------------------------------
     // 3) Canonical token params
     // ------------------------------------------------------------
-    let name = "Canonical USDC".to_string();
-    let symbol = "USDC".to_string();
+    let name = "USD Coin.cspr".to_string();
+    let symbol = "USDC.cspr".to_string();
     let decimals = 6u8;
 
     // 1,000,000 USDC (with 6 decimals)

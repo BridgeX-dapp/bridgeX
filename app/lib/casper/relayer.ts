@@ -20,7 +20,7 @@ export async function fetchCasperTokenBalance(params: {
   contractPackageHash?: string
 }): Promise<CasperBalanceResponse> {
   const { relayerUrl, accountHash, contractHash, contractPackageHash } = params
-  const url = new URL("/api/v1/tests/casper/token-balance", relayerUrl)
+  const url = new URL("/api/v1/casper/token-balance", relayerUrl)
   url.searchParams.set("accountHash", accountHash)
   if (contractHash) url.searchParams.set("contractHash", contractHash)
   if (contractPackageHash) url.searchParams.set("contractPackageHash", contractPackageHash)
@@ -40,7 +40,7 @@ export async function fetchCasperTokenAllowance(params: {
   spenderContractHash?: string
 }): Promise<CasperAllowanceResponse> {
   const { relayerUrl, ownerAccountHash, tokenContractHash, spenderContractHash } = params
-  const url = new URL("/api/v1/tests/casper/token-allowance", relayerUrl)
+  const url = new URL("/api/v1/casper/token-allowance", relayerUrl)
   url.searchParams.set("ownerAccountHash", ownerAccountHash)
   url.searchParams.set("tokenContractHash", tokenContractHash)
   if (spenderContractHash) url.searchParams.set("spenderContractHash", spenderContractHash)

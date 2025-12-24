@@ -80,6 +80,7 @@ model Token {
   logoUrl         String?
   contractAddress String?
   contractHash    String?
+  contractPackageHash String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -90,8 +91,10 @@ model Token {
 
   @@unique([chainId, contractAddress])
   @@unique([chainId, contractHash])
+  @@unique([chainId, contractPackageHash])
   @@index([chainId, contractAddress])
   @@index([chainId, contractHash])
+  @@index([chainId, contractPackageHash])
 }
 
 model TokenPair {

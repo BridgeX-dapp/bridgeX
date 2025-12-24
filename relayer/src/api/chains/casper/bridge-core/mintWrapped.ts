@@ -14,7 +14,7 @@ import { loadCasperConfig } from '../config';
 import { clAddressFromAccountHash, clAddressFromContractHash } from '../utils';
 
 export async function mintWrappedOnCasper(params: {
-  token: string; // contract hash (hex)
+  token: string; // contract package hash (hex)
   recipient: string; // 32-byte account-hash hex
   amount: string; // raw units (string!)
   sourceChain: number;

@@ -5,10 +5,13 @@ import { generateEventId } from '../../lib/utils/eventId';
 import { NormalizedLockedEvent } from './bridge-core/normalizers/normalizeLockedCanonicalEvent';
 import { logger } from '../../lib/utils/logger';
 import { resolveChainRefId } from '../../lib/utils/chainResolver';
-import { loadEvmConfig } from './config';
+import { EvmChainConfig, loadEvmConfig } from './config';
 
-export async function persistLockedCanonicalEvent(ev: NormalizedLockedEvent) {
-  const evmConfig = loadEvmConfig();
+export async function persistLockedCanonicalEvent(
+  ev: NormalizedLockedEvent,
+  chainConfig?: EvmChainConfig,
+) {
+  const evmConfig = chainConfig ?? loadEvmConfig();
   const eventId = generateEventId({
     sourceChain: ev.sourceChain,
     txHash: ev.txHash,
@@ -26,7 +29,7 @@ export async function persistLockedCanonicalEvent(ev: NormalizedLockedEvent) {
       : null;
   const sourceChainRefId = await resolveChainRefId({
     kind: CHAIN.EVM,
-    chainId: evmConfig.EVM_CHAIN_ID,
+    chainId: evmConfig.chainId,
   });
   const destChainRefId = destChainIdNum
     ? await resolveChainRefId({ chainId: destChainIdNum })
@@ -35,7 +38,7 @@ export async function persistLockedCanonicalEvent(ev: NormalizedLockedEvent) {
   try {
     await prisma.transaction.upsert({
       where: { eventId },
-      update: {}, // idempotent ƒ?" no overwrite
+      update: {}, // idempotent ?" no overwrite
       create: {
         eventId,
 

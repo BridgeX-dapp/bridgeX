@@ -1,6 +1,6 @@
 import expressAsyncHandler from 'express-async-handler';
 import { burnWrappedOnCasper } from '../chains/casper/bridge-core/burnWrapped';
-import { toTokenUnits } from '../chains/casper/utils';
+import { normalizeAmountInput } from '../lib/utils/amount';
 
 function isBytes32Hex(value: string) {
   const clean = value.startsWith('0x') ? value.slice(2) : value;
@@ -20,7 +20,10 @@ export const burnWrappedCasper = expressAsyncHandler(async (req, res) => {
     return;
   }
 
-  const amountRaw = toTokenUnits(amount, Number(decimals)).toString();
+  const amountRaw = normalizeAmountInput({
+    amount,
+    decimals: decimals !== undefined ? Number(decimals) : 6,
+  });
 
   const { deployHash } = await burnWrappedOnCasper({
     token,

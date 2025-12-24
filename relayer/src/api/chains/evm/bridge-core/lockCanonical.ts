@@ -7,8 +7,9 @@ export async function lockCanonicalOnEvm(params: {
   amount: string | number | bigint;
   destChainId: number;
   destRecipient: string;
+  chainConfig?: Parameters<typeof getBridgeCoreContract>[0];
 }) {
-  const bridgeCore = getBridgeCoreContract();
+  const bridgeCore = getBridgeCoreContract(params.chainConfig);
   try {
     const tx = await bridgeCore.lockCanonical(
       params.token,

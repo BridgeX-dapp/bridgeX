@@ -7,8 +7,9 @@ export async function mintFromLockOnEvm(params: {
   recipient: string;
   amount: string | number | bigint;
   eventId: string;
+  chainConfig?: Parameters<typeof getBridgeCoreContract>[0];
 }) {
-  const bridgeCore = getBridgeCoreContract();
+  const bridgeCore = getBridgeCoreContract(params.chainConfig);
 
   const tx = await bridgeCore.mintFromLock(
     params.wrappedToken,
@@ -21,4 +22,3 @@ export async function mintFromLockOnEvm(params: {
 
   return { txHash: tx.hash };
 }
-

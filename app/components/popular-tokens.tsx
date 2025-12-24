@@ -4,29 +4,21 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-type Token = {
+type PopularToken = {
+  id: number
   symbol: string
   name: string
-  logo: string
-  balance: string
+  logoUrl?: string | null
+  balance?: string | null
 }
-
-const POPULAR_TOKENS: Token[] = [
-  { symbol: "ETH", name: "Ethereum", logo: "⟠", balance: "2.45" },
-  { symbol: "USDC", name: "USD Coin", logo: "💵", balance: "1,234.56" },
-  { symbol: "USDT", name: "Tether", logo: "₮", balance: "500.00" },
-  { symbol: "DAI", name: "Dai Stablecoin", logo: "◈", balance: "750.25" },
-  { symbol: "WBTC", name: "Wrapped Bitcoin", logo: "₿", balance: "0.05" },
-  { symbol: "MATIC", name: "Polygon", logo: "◇", balance: "1,500.00" },
-]
 
 type PopularTokensProps = {
-  onSelectToken: (token: Token) => void
+  tokens: PopularToken[]
+  onSelectToken: (token: PopularToken) => void
 }
 
-export function PopularTokens({ onSelectToken }: PopularTokensProps) {
+export function PopularTokens({ tokens, onSelectToken }: PopularTokensProps) {
   const [scrollPosition, setScrollPosition] = useState(0)
-  const containerRef = useState<HTMLDivElement | null>(null)[0]
 
   const scroll = (direction: "left" | "right") => {
     const container = document.getElementById("popular-tokens-container")
@@ -60,9 +52,9 @@ export function PopularTokens({ onSelectToken }: PopularTokensProps) {
         className="flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth pb-2"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
-        {POPULAR_TOKENS.map((token) => (
+        {tokens.map((token) => (
           <button
-            key={token.symbol}
+            key={token.id}
             onClick={() => onSelectToken(token)}
             className={cn(
               "flex-shrink-0 flex items-center gap-2 px-4 py-3 rounded-lg",
@@ -72,12 +64,16 @@ export function PopularTokens({ onSelectToken }: PopularTokensProps) {
               "group",
             )}
           >
-            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-lg group-hover:bg-primary/20 transition-colors">
-              {token.logo}
+            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold group-hover:bg-primary/20 transition-colors overflow-hidden">
+              {token.logoUrl ? (
+                <img src={token.logoUrl} alt={token.symbol} className="h-8 w-8 object-contain" />
+              ) : (
+                token.symbol.slice(0, 2).toUpperCase()
+              )}
             </div>
             <div className="text-left">
               <div className="font-semibold text-sm">{token.symbol}</div>
-              <div className="text-xs text-muted-foreground">{token.balance}</div>
+              <div className="text-xs text-muted-foreground">{token.balance ?? "-"}</div>
             </div>
           </button>
         ))}

@@ -1,0 +1,8 @@
+{
+  "BridgeCoreModule": {
+    "initialOwner": "0xfAb878D5e582BDE86223dFd529B7227F780c3D9F",
+    "relayer": "0xfAb878D5e582BDE86223dFd529B7227F780c3D9F",
+    "feeReceiver": "0xfAb878D5e582BDE86223dFd529B7227F780c3D9F",
+    "feeBps": 100
+  }
+}

@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { ConnectButton } from "@rainbow-me/rainbowkit"
 import { BridgeCard } from "@/components/bridge-card"
+import { BridgeCardSingle } from "@/components/bridge-card-single"
 import { TransactionsCard } from "@/components/transactions-card"
 import { CasperTestPanel } from "@/components/casper-test-panel"
 import { EvmTestPanel } from "@/components/evm-test-panel"
@@ -71,12 +72,29 @@ export default function HomeClient() {
               mode === "advanced" ? "lg:grid-cols-2" : "grid-cols-1",
             )}
           >
-            <BridgeCard
-              initialSourceChain={sourceChain}
-              initialDestChain={destChain}
-              initialSourceToken={sourceToken}
-              initialDestToken={destToken}
-            />
+            <div className="space-y-6">
+              {mode === "simple" ? (
+                <BridgeCardSingle
+                  initialSourceChain={sourceChain}
+                  initialDestChain={destChain}
+                  initialSourceToken={sourceToken}
+                />
+              ) : (
+                <>
+                  <BridgeCardSingle
+                    initialSourceChain={sourceChain}
+                    initialDestChain={destChain}
+                    initialSourceToken={sourceToken}
+                  />
+                  <BridgeCard
+                    initialSourceChain={sourceChain}
+                    initialDestChain={destChain}
+                    initialSourceToken={sourceToken}
+                    initialDestToken={destToken}
+                  />
+                </>
+              )}
+            </div>
             {mode === "advanced" && (
               <div className="animate-in fade-in slide-in-from-right-4 duration-500 space-y-6">
                 <CasperTestPanel />

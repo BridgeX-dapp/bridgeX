@@ -2,6 +2,7 @@ import prisma from '../../lib/utils/clients/prisma-client';
 import { logger } from '../../lib/utils/logger';
 import { unlockFromBurnOnEvm } from '../../chains/evm/bridge-core/unlockFromBurn';
 import { resolveDestinationToken } from '../../lib/utils/tokenMapping';
+import { resolveEvmChainConfig } from '../../chains/evm/config';
 
 function bytes32ToEvmAddress(value: string) {
   const clean = value.startsWith('0x') ? value.slice(2) : value;
@@ -51,6 +52,8 @@ export async function handleCasperBurnedWrapped(eventId: string) {
     if (!destToken.contractAddress) {
       throw new Error('destination token missing contractAddress');
     }
+    const chainConfig = resolveEvmChainConfig(destChain.name);
+
     await prisma.transaction.update({
       where: { eventId },
       data: { status: 'EXECUTING' },
@@ -61,6 +64,7 @@ export async function handleCasperBurnedWrapped(eventId: string) {
       recipient,
       amount: tx.amount,
       eventId,
+      chainConfig,
     });
 
     await prisma.transaction.update({

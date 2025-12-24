@@ -1,6 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useMemo, useState } from "react"
+import type { CatalogChain, CatalogToken } from "@/lib/relayer/catalog"
+import { usePublicClient } from "wagmi"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,19 +11,13 @@ import { TokenSelectModal } from "@/components/token-select-modal"
 import { RecipientModal } from "@/components/recipient-modal"
 import { ChainSelectModal } from "@/components/chain-select-modal"
 import { PopularTokens } from "@/components/popular-tokens"
-
-type Token = {
-  symbol: string
-  name: string
-  logo: string
-  balance: string
-}
-
-type Network = {
-  id: string
-  name: string
-  logo: string
-}
+import { useRelayerCatalog } from "@/contexts/relayer-catalog-context"
+import { useEvmWallet } from "@/contexts/evm-wallet-context"
+import { useCasperWallet } from "@/contexts/casper-wallet-context"
+import { useEvmClientConfig } from "@/contexts/evm-client-config-context"
+import { resolveBridgeCoreAddress } from "@/lib/evm/config"
+import { erc20Abi } from "@/lib/evm/erc20-abi"
+import { formatCasperRecipient, formatEvmRecipient } from "@/lib/recipient"
 
 type BridgeCardProps = {
   initialSourceChain?: string
@@ -30,58 +26,287 @@ type BridgeCardProps = {
   initialDestToken?: string
 }
 
-export function BridgeCard({ initialSourceChain, initialDestChain, initialSourceToken }: BridgeCardProps) {
-  const [showTokenModal, setShowTokenModal] = useState(false)
+function resolveChainDisplayName(chain: CatalogChain) {
+  return chain.displayName ?? chain.name
+}
+
+function normalizeChainName(value: string) {
+  return value.trim().toLowerCase()
+}
+
+function isEvmChain(chain?: CatalogChain | null) {
+  return chain?.kind === "EVM"
+}
+
+function uniqueById<T extends { id: number }>(items: T[]) {
+  const seen = new Set<number>()
+  return items.filter((item) => {
+    if (seen.has(item.id)) return false
+    seen.add(item.id)
+    return true
+  })
+}
+
+export function BridgeCard({ initialSourceChain, initialDestChain, initialSourceToken, initialDestToken }: BridgeCardProps) {
+  const { chains, tokens, tokenPairs, loading, error } = useRelayerCatalog()
+  const { address, chainId: walletChainId, switchChain, connect } = useEvmWallet()
+  const casperWallet = useCasperWallet()
+  const evmConfig = useEvmClientConfig()
+  const [showSourceTokenModal, setShowSourceTokenModal] = useState(false)
+  const [showDestTokenModal, setShowDestTokenModal] = useState(false)
   const [showRecipientModal, setShowRecipientModal] = useState(false)
   const [showFromChainModal, setShowFromChainModal] = useState(false)
   const [showToChainModal, setShowToChainModal] = useState(false)
   const [isWalletSectionExpanded, setIsWalletSectionExpanded] = useState(false)
 
-  const [selectedToken, setSelectedToken] = useState<Token | null>(null)
-  const [fromNetwork, setFromNetwork] = useState<Network>({
-    id: "ethereum",
-    name: "Ethereum",
-    logo: "⟠",
-  })
-  const [toNetwork, setToNetwork] = useState<Network>({
-    id: "arbitrum",
-    name: "Arbitrum",
-    logo: "◆",
-  })
+  const [sourceChain, setSourceChain] = useState<CatalogChain | null>(null)
+  const [destChain, setDestChain] = useState<CatalogChain | null>(null)
+  const [sourceToken, setSourceToken] = useState<CatalogToken | null>(null)
+  const [destToken, setDestToken] = useState<CatalogToken | null>(null)
   const [amount, setAmount] = useState("")
   const [recipient, setRecipient] = useState<string>("")
+  const [recipientTouched, setRecipientTouched] = useState(false)
+  const [recipientError, setRecipientError] = useState<string | null>(null)
+
+  const [evmBalance, setEvmBalance] = useState<string | null>(null)
+  const [evmAllowance, setEvmAllowance] = useState<string | null>(null)
+  const [evmLoading, setEvmLoading] = useState(false)
+
+  const chainMap = useMemo(() => new Map(chains.map((chain) => [chain.id, chain])), [chains])
+  const tokenMap = useMemo(() => new Map(tokens.map((token) => [token.id, token])), [tokens])
+
+  const pairsWithRefs = useMemo(() => {
+    return tokenPairs.map((pair) => ({
+      ...pair,
+      sourceChain: pair.sourceChain ?? chainMap.get(pair.sourceChainId),
+      destChain: pair.destChain ?? chainMap.get(pair.destChainId),
+      sourceToken: pair.sourceToken ?? tokenMap.get(pair.sourceTokenId),
+      destToken: pair.destToken ?? tokenMap.get(pair.destTokenId),
+    }))
+  }, [tokenPairs, chainMap, tokenMap])
+
+  const popularTokens = useMemo(() => {
+    const tokensFromPairs: CatalogToken[] = []
+    pairsWithRefs.forEach((pair) => {
+      if (pair.sourceToken) tokensFromPairs.push(pair.sourceToken)
+      if (pair.destToken) tokensFromPairs.push(pair.destToken)
+    })
+    return uniqueById(tokensFromPairs).sort((a, b) => a.symbol.localeCompare(b.symbol))
+  }, [pairsWithRefs])
+
+  const sourceChainOptions = useMemo(() => chains, [chains])
+
+  const destChainOptions = useMemo(() => {
+    if (!sourceChain) return chains
+    const possible = pairsWithRefs
+      .filter((pair) => pair.sourceChainId === sourceChain.id)
+      .map((pair) => pair.destChain)
+      .filter(Boolean) as CatalogChain[]
+    return uniqueById(possible)
+  }, [chains, pairsWithRefs, sourceChain])
+
+  const sourceTokenOptions = useMemo(() => {
+    if (!sourceChain) return []
+    const filtered = pairsWithRefs.filter((pair) => pair.sourceChainId === sourceChain.id)
+    const withDest = destChain ? filtered.filter((pair) => pair.destChainId === destChain.id) : filtered
+    const tokensForChain = withDest.map((pair) => pair.sourceToken).filter(Boolean) as CatalogToken[]
+    return uniqueById(tokensForChain).sort((a, b) => a.symbol.localeCompare(b.symbol))
+  }, [pairsWithRefs, sourceChain, destChain])
+
+  const destTokenOptions = useMemo(() => {
+    if (!sourceChain || !sourceToken) return []
+    const filtered = pairsWithRefs.filter(
+      (pair) => pair.sourceChainId === sourceChain.id && pair.sourceTokenId === sourceToken.id,
+    )
+    const withDest = destChain ? filtered.filter((pair) => pair.destChainId === destChain.id) : filtered
+    const tokensForChain = withDest.map((pair) => pair.destToken).filter(Boolean) as CatalogToken[]
+    return uniqueById(tokensForChain).sort((a, b) => a.symbol.localeCompare(b.symbol))
+  }, [pairsWithRefs, sourceChain, sourceToken, destChain])
 
   useEffect(() => {
-    const chains: Record<string, Network> = {
-      ethereum: { id: "ethereum", name: "Ethereum", logo: "⟠" },
-      arbitrum: { id: "arbitrum", name: "Arbitrum", logo: "◆" },
-      polygon: { id: "polygon", name: "Polygon", logo: "◇" },
-      optimism: { id: "optimism", name: "Optimism", logo: "🔴" },
-      base: { id: "base", name: "Base", logo: "🔵" },
+    if (!chains.length) return
+    if (!sourceChain) {
+      const baseSepolia = chains.find(
+        (chain) => chain.chainId === 84532 || normalizeChainName(chain.name) === "basesepolia",
+      )
+      setSourceChain(baseSepolia ?? chains[0])
     }
+  }, [chains, sourceChain])
 
-    const tokens: Record<string, Token> = {
-      eth: { symbol: "ETH", name: "Ethereum", logo: "⟠", balance: "2.45" },
-      usdc: { symbol: "USDC", name: "USD Coin", logo: "💵", balance: "1,234.56" },
-      usdt: { symbol: "USDT", name: "Tether", logo: "₮", balance: "500.00" },
-      dai: { symbol: "DAI", name: "Dai Stablecoin", logo: "◈", balance: "750.25" },
+  useEffect(() => {
+    if (!sourceChain) return
+    if (!destChain || !destChainOptions.some((chain) => chain.id === destChain.id)) {
+      setDestChain(destChainOptions[0] ?? null)
     }
+  }, [destChain, destChainOptions, sourceChain])
 
-    if (initialSourceChain && chains[initialSourceChain]) {
-      setFromNetwork(chains[initialSourceChain])
+  useEffect(() => {
+    if (!sourceToken || !sourceTokenOptions.some((token) => token.id === sourceToken.id)) {
+      setSourceToken(sourceTokenOptions[0] ?? null)
     }
-    if (initialDestChain && chains[initialDestChain]) {
-      setToNetwork(chains[initialDestChain])
+  }, [sourceToken, sourceTokenOptions])
+
+  useEffect(() => {
+    if (!destToken || !destTokenOptions.some((token) => token.id === destToken.id)) {
+      setDestToken(destTokenOptions[0] ?? null)
     }
-    if (initialSourceToken && tokens[initialSourceToken]) {
-      setSelectedToken(tokens[initialSourceToken])
-    }
-  }, [initialSourceChain, initialDestChain, initialSourceToken])
+  }, [destToken, destTokenOptions])
+
+  useEffect(() => {
+    if (!initialSourceChain || !chains.length) return
+    const match = chains.find((chain) => normalizeChainName(chain.name) === normalizeChainName(initialSourceChain))
+    if (match) setSourceChain(match)
+  }, [chains, initialSourceChain])
+
+  useEffect(() => {
+    if (!initialDestChain || !chains.length) return
+    const match = chains.find((chain) => normalizeChainName(chain.name) === normalizeChainName(initialDestChain))
+    if (match) setDestChain(match)
+  }, [chains, initialDestChain])
+
+  useEffect(() => {
+    if (!initialSourceToken || !tokens.length) return
+    const match = tokens.find((token) => token.symbol.toLowerCase() === initialSourceToken.toLowerCase())
+    if (match) setSourceToken(match)
+  }, [initialSourceToken, tokens])
+
+  useEffect(() => {
+    if (!initialDestToken || !tokens.length) return
+    const match = tokens.find((token) => token.symbol.toLowerCase() === initialDestToken.toLowerCase())
+    if (match) setDestToken(match)
+  }, [initialDestToken, tokens])
 
   const handleSwitchNetworks = () => {
-    const temp = fromNetwork
-    setFromNetwork(toNetwork)
-    setToNetwork(temp)
+    const temp = sourceChain
+    setSourceChain(destChain)
+    setDestChain(temp ?? null)
+  }
+
+  const requiresEvmWallet = isEvmChain(sourceChain)
+  const needsConnect = requiresEvmWallet && !address
+  const needsSwitch =
+    requiresEvmWallet &&
+    !needsConnect &&
+    Boolean(sourceChain?.chainId && walletChainId && sourceChain.chainId !== walletChainId)
+
+  const publicClient = usePublicClient({
+    chainId: sourceChain?.chainId ?? undefined,
+  })
+
+  useEffect(() => {
+    const fetchEvmState = async () => {
+      if (!isEvmChain(sourceChain)) {
+        setEvmBalance(null)
+        setEvmAllowance(null)
+        return
+      }
+      if (!address || !sourceToken?.contractAddress || !sourceChain?.chainId) {
+        setEvmBalance(null)
+        setEvmAllowance(null)
+        return
+      }
+      if (!publicClient) return
+      setEvmLoading(true)
+      try {
+        const balance = await publicClient.readContract({
+          address: sourceToken.contractAddress as `0x${string}`,
+          abi: erc20Abi,
+          functionName: "balanceOf",
+          args: [address as `0x${string}`],
+        })
+        const spender = resolveBridgeCoreAddress(evmConfig, sourceChain.chainId)
+        const allowance = await publicClient.readContract({
+          address: sourceToken.contractAddress as `0x${string}`,
+          abi: erc20Abi,
+          functionName: "allowance",
+          args: [address as `0x${string}`, spender as `0x${string}`],
+        })
+        setEvmBalance(balance.toString())
+        setEvmAllowance(allowance.toString())
+      } catch {
+        setEvmBalance(null)
+        setEvmAllowance(null)
+      } finally {
+        setEvmLoading(false)
+      }
+    }
+
+    fetchEvmState()
+  }, [address, evmConfig, publicClient, sourceChain, sourceToken])
+
+  const recipientFormat = useMemo(() => {
+    if (!recipient) return null
+    if (destChain?.kind === "EVM") return formatEvmRecipient(recipient)
+    if (destChain?.kind === "CASPER") return formatCasperRecipient(recipient)
+    return null
+  }, [destChain?.kind, recipient])
+
+  useEffect(() => {
+    if (!recipient) {
+      setRecipientError(null)
+      return
+    }
+    if (!recipientFormat) {
+      setRecipientError(null)
+      return
+    }
+    setRecipientError(recipientFormat.isValid ? null : recipientFormat.error ?? "Invalid recipient.")
+  }, [recipient, recipientFormat])
+
+  useEffect(() => {
+    if (recipient || recipientTouched) return
+    if (destChain?.kind === "EVM" && address) {
+      setRecipient(address)
+      return
+    }
+    if (destChain?.kind === "CASPER" && casperWallet.account?.public_key) {
+      setRecipient(casperWallet.account.public_key)
+    }
+  }, [address, casperWallet.account?.public_key, destChain?.kind, recipient, recipientTouched])
+
+  const bridgeDisabled =
+    !sourceToken || !destToken || !amount || !recipient || !sourceChain || !destChain || Boolean(recipientError)
+  const actionDisabled = !(needsConnect || needsSwitch || !bridgeDisabled)
+
+  const actionLabel = needsConnect
+    ? "Connect EVM Wallet"
+    : needsSwitch
+      ? `Switch chain to ${sourceChain ? resolveChainDisplayName(sourceChain) : ""}`
+      : "Bridge Assets"
+
+  const handleAction = () => {
+    if (needsConnect) {
+      connect()
+      return
+    }
+    if (needsSwitch) {
+      if (sourceChain?.chainId) {
+        switchChain(sourceChain.chainId)
+      }
+      return
+    }
+  }
+
+  const handleRecipientConnect = () => {
+    if (destChain?.kind === "EVM") {
+      connect()
+      return
+    }
+    if (destChain?.kind === "CASPER") {
+      casperWallet.connect()
+    }
+  }
+
+  const handleUseConnectedRecipient = () => {
+    if (destChain?.kind === "EVM" && address) {
+      setRecipient(address)
+      setRecipientTouched(true)
+      return
+    }
+    if (destChain?.kind === "CASPER" && casperWallet.account?.public_key) {
+      setRecipient(casperWallet.account.public_key)
+      setRecipientTouched(true)
+    }
   }
 
   return (
@@ -91,24 +316,62 @@ export function BridgeCard({ initialSourceChain, initialDestChain, initialSource
           <CardTitle className="text-2xl">Bridge Assets</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <PopularTokens onSelectToken={(token) => setSelectedToken(token)} />
+          {loading ? <div className="text-sm text-muted-foreground">Loading supported assets...</div> : null}
+          {error ? <div className="text-sm text-destructive">Catalog error: {error}</div> : null}
 
-          {/* Token Selection */}
+          <PopularTokens tokens={popularTokens} onSelectToken={(token) => setSourceToken(token)} />
+
           <div className="space-y-2">
-            <Label>Select Token</Label>
+            <Label>Select Source Token</Label>
             <Button
               variant="outline"
               className="w-full h-16 justify-between text-left hover:bg-accent/50 transition-colors bg-transparent"
-              onClick={() => setShowTokenModal(true)}
+              onClick={() => setShowSourceTokenModal(true)}
+              disabled={!sourceChain}
             >
-              {selectedToken ? (
+              {sourceToken ? (
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xl">
-                    {selectedToken.logo}
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold overflow-hidden">
+                    {sourceToken.logoUrl ? (
+                      <img src={sourceToken.logoUrl} alt={sourceToken.symbol} className="h-10 w-10 object-contain" />
+                    ) : (
+                      sourceToken.symbol.slice(0, 2).toUpperCase()
+                    )}
                   </div>
                   <div>
-                    <div className="font-semibold">{selectedToken.symbol}</div>
-                    <div className="text-xs text-muted-foreground">{selectedToken.name}</div>
+                    <div className="font-semibold">{sourceToken.symbol}</div>
+                    <div className="text-xs text-muted-foreground">{sourceToken.name}</div>
+                  </div>
+                </div>
+              ) : (
+                <span className="text-muted-foreground">Choose a token</span>
+              )}
+              <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </Button>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Select Destination Token</Label>
+            <Button
+              variant="outline"
+              className="w-full h-16 justify-between text-left hover:bg-accent/50 transition-colors bg-transparent"
+              onClick={() => setShowDestTokenModal(true)}
+              disabled={!destChain || !sourceToken}
+            >
+              {destToken ? (
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold overflow-hidden">
+                    {destToken.logoUrl ? (
+                      <img src={destToken.logoUrl} alt={destToken.symbol} className="h-10 w-10 object-contain" />
+                    ) : (
+                      destToken.symbol.slice(0, 2).toUpperCase()
+                    )}
+                  </div>
+                  <div>
+                    <div className="font-semibold">{destToken.symbol}</div>
+                    <div className="text-xs text-muted-foreground">{destToken.name}</div>
                   </div>
                 </div>
               ) : (
@@ -126,11 +389,15 @@ export function BridgeCard({ initialSourceChain, initialDestChain, initialSource
               onClick={() => setShowFromChainModal(true)}
               className="w-full flex items-center gap-3 p-4 rounded-lg bg-secondary/50 border border-border hover:bg-secondary/70 transition-colors"
             >
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xl">
-                {fromNetwork.logo}
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold overflow-hidden">
+                {sourceChain?.logoUrl ? (
+                  <img src={sourceChain.logoUrl} alt={sourceChain.name} className="h-10 w-10 object-contain" />
+                ) : (
+                  (sourceChain ? resolveChainDisplayName(sourceChain) : "?").slice(0, 2).toUpperCase()
+                )}
               </div>
               <div className="flex-1 text-left">
-                <div className="font-semibold">{fromNetwork.name}</div>
+                <div className="font-semibold">{sourceChain ? resolveChainDisplayName(sourceChain) : "Select"}</div>
                 <div className="text-xs text-muted-foreground">Source Chain</div>
               </div>
               <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -139,13 +406,13 @@ export function BridgeCard({ initialSourceChain, initialDestChain, initialSource
             </button>
           </div>
 
-          {/* Switch Networks Button */}
           <div className="flex justify-center -my-3 relative z-10">
             <Button
               size="icon"
               variant="outline"
               className="rounded-full h-10 w-10 bg-card hover:bg-accent transition-all duration-300 hover:rotate-180"
               onClick={handleSwitchNetworks}
+              disabled={!sourceChain || !destChain}
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
@@ -164,11 +431,15 @@ export function BridgeCard({ initialSourceChain, initialDestChain, initialSource
               onClick={() => setShowToChainModal(true)}
               className="w-full flex items-center gap-3 p-4 rounded-lg bg-secondary/50 border border-border hover:bg-secondary/70 transition-colors"
             >
-              <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center text-xl">
-                {toNetwork.logo}
+              <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center text-xs font-semibold overflow-hidden">
+                {destChain?.logoUrl ? (
+                  <img src={destChain.logoUrl} alt={destChain.name} className="h-10 w-10 object-contain" />
+                ) : (
+                  (destChain ? resolveChainDisplayName(destChain) : "?").slice(0, 2).toUpperCase()
+                )}
               </div>
               <div className="flex-1 text-left">
-                <div className="font-semibold">{toNetwork.name}</div>
+                <div className="font-semibold">{destChain ? resolveChainDisplayName(destChain) : "Select"}</div>
                 <div className="text-xs text-muted-foreground">Destination Chain</div>
               </div>
               <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -177,7 +448,6 @@ export function BridgeCard({ initialSourceChain, initialDestChain, initialSource
             </button>
           </div>
 
-          {/* Amount Input */}
           <div className="space-y-2">
             <Label>Amount</Label>
             <div className="relative">
@@ -197,20 +467,27 @@ export function BridgeCard({ initialSourceChain, initialDestChain, initialSource
                 MAX
               </Button>
             </div>
-            {selectedToken && (
+            {isEvmChain(sourceChain) && sourceToken ? (
               <p className="text-xs text-muted-foreground">
-                Balance: {selectedToken.balance} {selectedToken.symbol}
+                Balance: {evmLoading ? "Loading..." : evmBalance ?? "-"} {sourceToken.symbol} • Allowance:{" "}
+                {evmLoading ? "Loading..." : evmAllowance ?? "-"}
               </p>
-            )}
+            ) : null}
           </div>
 
-          {/* Recipient */}
           <div className="space-y-2">
             <Label>Recipient</Label>
             {recipient ? (
               <div className="flex items-center gap-2 p-3 rounded-lg bg-secondary/50 border border-border">
                 <div className="flex-1 font-mono text-sm truncate">{recipient}</div>
-                <Button size="sm" variant="ghost" onClick={() => setRecipient("")}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setRecipient("")
+                    setRecipientTouched(true)
+                  }}
+                >
                   Change
                 </Button>
               </div>
@@ -242,11 +519,15 @@ export function BridgeCard({ initialSourceChain, initialDestChain, initialSource
                       variant="outline"
                       className="h-12 bg-background hover:bg-accent transition-colors"
                       onClick={() => {
-                        setRecipient("0x1234...5678")
+                        handleRecipientConnect()
                         setIsWalletSectionExpanded(false)
                       }}
                     >
-                      Connect Wallet
+                      {destChain?.kind === "CASPER"
+                        ? "Connect Casper Wallet"
+                        : destChain?.kind === "EVM"
+                          ? "Connect EVM Wallet"
+                          : "Connect Wallet"}
                     </Button>
                     <Button
                       variant="outline"
@@ -262,18 +543,25 @@ export function BridgeCard({ initialSourceChain, initialDestChain, initialSource
                 </div>
               </div>
             )}
+            {recipientError ? <p className="text-xs text-destructive mt-2">{recipientError}</p> : null}
+            {!recipientError &&
+            recipient &&
+            ((destChain?.kind === "EVM" && address) || (destChain?.kind === "CASPER" && casperWallet.account?.public_key)) ? (
+              <Button variant="ghost" size="sm" onClick={handleUseConnectedRecipient} className="mt-2">
+                Use connected wallet
+              </Button>
+            ) : null}
           </div>
 
-          {/* Bridge Button */}
           <Button
             size="lg"
             className="w-full h-14 text-base font-semibold bg-primary hover:bg-primary/90 transition-all duration-300 shadow-lg hover:shadow-primary/50"
-            disabled={!selectedToken || !amount || !recipient}
+            disabled={actionDisabled}
+            onClick={handleAction}
           >
-            Bridge Assets
+            {actionLabel}
           </Button>
 
-          {/* Info Cards */}
           <div className="grid grid-cols-2 gap-3 pt-2">
             <div className="p-3 rounded-lg bg-secondary/30 border border-border">
               <div className="text-xs text-muted-foreground">Estimated Time</div>
@@ -288,19 +576,33 @@ export function BridgeCard({ initialSourceChain, initialDestChain, initialSource
       </Card>
 
       <TokenSelectModal
-        open={showTokenModal}
-        onOpenChange={setShowTokenModal}
+        open={showSourceTokenModal}
+        onOpenChange={setShowSourceTokenModal}
         onSelectToken={(token) => {
-          setSelectedToken(token)
-          setShowTokenModal(false)
+          setSourceToken(token)
+          setShowSourceTokenModal(false)
         }}
+        tokens={sourceTokenOptions}
+        title="Select Source Token"
+      />
+
+      <TokenSelectModal
+        open={showDestTokenModal}
+        onOpenChange={setShowDestTokenModal}
+        onSelectToken={(token) => {
+          setDestToken(token)
+          setShowDestTokenModal(false)
+        }}
+        tokens={destTokenOptions}
+        title="Select Destination Token"
       />
 
       <RecipientModal
         open={showRecipientModal}
         onOpenChange={setShowRecipientModal}
-        onSubmit={(address) => {
-          setRecipient(address)
+        onSubmit={(addressValue) => {
+          setRecipient(addressValue)
+          setRecipientTouched(true)
           setShowRecipientModal(false)
         }}
       />
@@ -309,9 +611,10 @@ export function BridgeCard({ initialSourceChain, initialDestChain, initialSource
         open={showFromChainModal}
         onOpenChange={setShowFromChainModal}
         onSelectChain={(chain) => {
-          setFromNetwork(chain)
+          setSourceChain(chain)
           setShowFromChainModal(false)
         }}
+        chains={sourceChainOptions}
         title="Select Source Chain"
       />
 
@@ -319,9 +622,10 @@ export function BridgeCard({ initialSourceChain, initialDestChain, initialSource
         open={showToChainModal}
         onOpenChange={setShowToChainModal}
         onSelectChain={(chain) => {
-          setToNetwork(chain)
+          setDestChain(chain)
           setShowToChainModal(false)
         }}
+        chains={destChainOptions}
         title="Select Destination Chain"
       />
     </>

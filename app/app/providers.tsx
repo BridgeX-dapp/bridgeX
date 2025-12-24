@@ -14,7 +14,9 @@ import { CasperClientConfigProvider } from "@/contexts/casper-client-config-cont
 import { CasperTransactionsProvider } from "@/contexts/casper-transactions-context"
 import { EvmClientConfigProvider } from "@/contexts/evm-client-config-context"
 import { EvmWalletProvider } from "@/contexts/evm-wallet-context"
-import { evmChains, getEvmChainById, somniaTestnet } from "@/lib/evm/chains"
+import { RelayerCatalogProvider } from "@/contexts/relayer-catalog-context"
+import { arbitrumSepolia, baseSepolia, polygonAmoy } from "wagmi/chains"
+import { evmChains, getEvmChainById } from "@/lib/evm/chains"
 
 type CasperClickConfig = {
   appName: string
@@ -34,8 +36,17 @@ type ProvidersProps = {
   evmClient: {
     EVM_WALLETCONNECT_PROJECT_ID: string
     EVM_DEFAULT_CHAIN_ID: number
-    SOMNIA_TESTNET_EVM_BRIDGE_CORE_ADDRESS: string
+    BASE_SEPOLIA_EVM_BRIDGE_CORE_ADDRESS: string
+    ARBITRUM_SEPOLIA_EVM_BRIDGE_CORE_ADDRESS: string
+    POLYGON_AMOY_EVM_BRIDGE_CORE_ADDRESS: string
     EVM_BRIDGE_CORE_ADDRESS?: string
+    ALCHEMY_API_KEY: string
+    BASE_SEPOLIA_RPC_URL: string
+    BASE_SEPOLIA_WS_RPC_URL: string
+    ARBITRUM_SEPOLIA_RPC_URL: string
+    ARBITRUM_SEPOLIA_WS_RPC_URL: string
+    POLYGON_AMOY_RPC_URL: string
+    POLYGON_AMOY_WS_RPC_URL: string
   }
   children: React.ReactNode
 }
@@ -63,11 +74,19 @@ export function Providers({ casperClick, casperClient, evmClient, children }: Pr
         projectId: evmClient.EVM_WALLETCONNECT_PROJECT_ID,
         chains: evmChains,
         transports: {
-          [somniaTestnet.id]: http(somniaTestnet.rpcUrls.default.http[0]),
+          [baseSepolia.id]: http(evmClient.BASE_SEPOLIA_RPC_URL),
+          [arbitrumSepolia.id]: http(evmClient.ARBITRUM_SEPOLIA_RPC_URL),
+          [polygonAmoy.id]: http(evmClient.POLYGON_AMOY_RPC_URL),
         },
         ssr: false,
       }),
-    [casperClick.appName, evmClient.EVM_WALLETCONNECT_PROJECT_ID],
+    [
+      casperClick.appName,
+      evmClient.ARBITRUM_SEPOLIA_RPC_URL,
+      evmClient.BASE_SEPOLIA_RPC_URL,
+      evmClient.EVM_WALLETCONNECT_PROJECT_ID,
+      evmClient.POLYGON_AMOY_RPC_URL,
+    ],
   )
 
   const initialChain = useMemo(
@@ -85,9 +104,11 @@ export function Providers({ casperClick, casperClient, evmClient, children }: Pr
               <EvmClientConfigProvider value={evmClient}>
                 <EvmWalletProvider>
                   <CasperClientConfigProvider value={casperClient}>
-                    <CasperWalletProvider>
-                      <CasperTransactionsProvider>{children}</CasperTransactionsProvider>
-                    </CasperWalletProvider>
+                    <RelayerCatalogProvider>
+                      <CasperWalletProvider>
+                        <CasperTransactionsProvider>{children}</CasperTransactionsProvider>
+                      </CasperWalletProvider>
+                    </RelayerCatalogProvider>
                   </CasperClientConfigProvider>
                 </EvmWalletProvider>
               </EvmClientConfigProvider>

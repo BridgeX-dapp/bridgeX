@@ -1,0 +1,13 @@
+{
+  "BridgeCoreModule": {
+  "initialOwner": "0xfAb878D5e582BDE86223dFd529B7227F780c3D9F",
+    "relayer": "0xfAb878D5e582BDE86223dFd529B7227F780c3D9F",
+    "feeReceiver": "0xfAb878D5e582BDE86223dFd529B7227F780c3D9F",
+    "feeBps": 100
+  },
+  "WrappedTokenOnboardingModule": {
+    "token": "0x55c20A036F2900e4D34dD7A46faA2176F5cd39Dd",
+    "minAmount": 1,
+    "maxAmount": 1000000000000000
+  }
+}

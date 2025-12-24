@@ -1,8 +1,11 @@
 import expressAsyncHandler from 'express-async-handler';
 import { lockCanonicalOnEvm } from '../chains/evm/bridge-core/lockCanonical';
+import { resolveEvmChainFromRequest } from './evmChain';
+import { normalizeAmountInput } from '../lib/utils/amount';
 
 export const lockCanonicalEvm = expressAsyncHandler(async (req, res) => {
-  const { token, amount, destChainId, destRecipient } = req.body ?? {};
+  const { chain, token, amount, destChainId, destRecipient, decimals } =
+    req.body ?? {};
 
   const isBytes32Hex = (value: string) => {
     const clean = value.startsWith('0x') ? value.slice(2) : value;
@@ -18,11 +21,23 @@ export const lockCanonicalEvm = expressAsyncHandler(async (req, res) => {
     return;
   }
 
+  let chainConfig;
+  try {
+    chainConfig = resolveEvmChainFromRequest(chain);
+  } catch (error: any) {
+    res.status(400).json({ error: error?.message ?? 'Invalid chain' });
+    return;
+  }
+
   const { txHash } = await lockCanonicalOnEvm({
     token,
-    amount,
+    amount: normalizeAmountInput({
+      amount,
+      decimals: decimals !== undefined ? Number(decimals) : undefined,
+    }),
     destChainId: Number(destChainId),
     destRecipient,
+    chainConfig,
   });
 
   res.status(200).json({

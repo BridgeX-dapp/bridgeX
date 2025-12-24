@@ -1,8 +1,18 @@
 import expressAsyncHandler from 'express-async-handler';
 import { getBridgeCoreContract } from '../chains/evm/contracts';
+import { resolveEvmChainFromRequest } from './evmChain';
 
 export const lockNative = expressAsyncHandler(async (req, res) => {
-  const bridgeCore = getBridgeCoreContract();
+  const { chain } = req.body ?? {};
+  let chainConfig;
+  try {
+    chainConfig = resolveEvmChainFromRequest(chain);
+  } catch (error: any) {
+    res.status(400).json({ error: error?.message ?? 'Invalid chain' });
+    return;
+  }
+
+  const bridgeCore = getBridgeCoreContract(chainConfig);
 
   const handleLock = async () => {
     await bridgeCore.lockCanonical(

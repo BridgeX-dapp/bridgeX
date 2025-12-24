@@ -23,8 +23,17 @@ type ClientProvidersProps = {
   evmClient: {
     EVM_WALLETCONNECT_PROJECT_ID: string
     EVM_DEFAULT_CHAIN_ID: number
-    SOMNIA_TESTNET_EVM_BRIDGE_CORE_ADDRESS: string
+    BASE_SEPOLIA_EVM_BRIDGE_CORE_ADDRESS: string
+    ARBITRUM_SEPOLIA_EVM_BRIDGE_CORE_ADDRESS: string
+    POLYGON_AMOY_EVM_BRIDGE_CORE_ADDRESS: string
     EVM_BRIDGE_CORE_ADDRESS?: string
+    ALCHEMY_API_KEY: string
+    BASE_SEPOLIA_RPC_URL: string
+    BASE_SEPOLIA_WS_RPC_URL: string
+    ARBITRUM_SEPOLIA_RPC_URL: string
+    ARBITRUM_SEPOLIA_WS_RPC_URL: string
+    POLYGON_AMOY_RPC_URL: string
+    POLYGON_AMOY_WS_RPC_URL: string
   }
   children: React.ReactNode
 }

@@ -1,22 +1,11 @@
-import { arbitrumSepolia, baseSepolia, optimismSepolia, sepolia } from "wagmi/chains"
-import type { Chain } from "viem"
+import { arbitrumSepolia, baseSepolia, polygonAmoy } from "wagmi/chains"
 
-export const SOMNIA_TESTNET_CHAIN_ID = 50312
+export const BASE_SEPOLIA_CHAIN_ID = baseSepolia.id
+export const ARBITRUM_SEPOLIA_CHAIN_ID = arbitrumSepolia.id
+export const POLYGON_AMOY_CHAIN_ID = polygonAmoy.id
 
-export const somniaTestnet: Chain = {
-  id: SOMNIA_TESTNET_CHAIN_ID,
-  name: "Somnia Testnet",
-  network: "somnia-testnet",
-  nativeCurrency: { name: "STT", symbol: "STT", decimals: 18 },
-  rpcUrls: {
-    default: { http: ["https://dream-rpc.somnia.network"] },
-    public: { http: ["https://dream-rpc.somnia.network"] },
-  },
-  testnet: true,
-}
-
-export const evmChains = [somniaTestnet, sepolia, baseSepolia, optimismSepolia, arbitrumSepolia] as const
+export const evmChains = [baseSepolia, arbitrumSepolia, polygonAmoy] as const
 
 export function getEvmChainById(chainId: number) {
-  return evmChains.find((chain) => chain.id === chainId) ?? somniaTestnet
+  return evmChains.find((chain) => chain.id === chainId) ?? baseSepolia
 }

@@ -1,7 +1,7 @@
 import { Contract, providers } from 'ethers';
 import { createEvmProviders } from './provider';
 import { logger } from '../../lib/utils/logger';
-import { loadEvmConfig } from './config';
+import { EvmChainConfig, loadEvmChainConfigs, loadEvmConfig } from './config';
 import BridgeCoreArtifact from '../evm/abis/bridgeCore.json';
 import { normalizeLockedCanonical } from './bridge-core/normalizers/normalizeLockedCanonicalEvent';
 import { normalizeBurnedWrapped } from './bridge-core/normalizers/normalizeBurnedWrappedEvent';
@@ -18,43 +18,49 @@ import {
 } from './persistEvents';
 import prisma from '../../lib/utils/clients/prisma-client';
 
-async function updateNetworkStatus(blockNumber: number) {
+async function updateNetworkStatus(chainKey: string, blockNumber: number) {
   await prisma.networkStatus.upsert({
-    where: { chain: 'EVM' },
+    where: { chain: chainKey },
     update: {
       lastProcessedBlock: {
         set: blockNumber,
       },
     },
     create: {
-      chain: 'EVM',
+      chain: chainKey,
       lastProcessedBlock: blockNumber,
     },
   });
 }
 
-export async function startEvmListener() {
-  const { httpProvider, wsProvider } = createEvmProviders();
+function getChainKey(config: EvmChainConfig) {
+  return `evm:${config.name}`;
+}
+
+export async function startEvmListener(chainConfig?: EvmChainConfig) {
+  const config = chainConfig ?? loadEvmConfig();
+  const { httpProvider, wsProvider } = createEvmProviders(config);
 
   const provider: providers.JsonRpcProvider | providers.WebSocketProvider =
     wsProvider ?? httpProvider;
 
-  const config = loadEvmConfig();
-
   const bridgeCore = new Contract(
-    config.EVM_BRIDGE_CORE_ADDRESS as string,
+    config.bridgeCoreAddress,
     ((BridgeCoreArtifact as any).abi ?? BridgeCoreArtifact) as any,
     provider,
   );
 
   logger.info(
     {
+      chain: config.name,
       provider: wsProvider ? 'websocket' : 'http',
-      wsUrl: config.EVM_RPC_WS_URL,
-      httpUrl: config.EVM_RPC_HTTP_URL,
+      wsUrl: config.wsUrl,
+      httpUrl: config.httpUrl,
     },
     'Starting EVM event listener',
   );
+
+  const chainKey = getChainKey(config);
 
   bridgeCore.on(
     'LockedCanonical',
@@ -71,6 +77,7 @@ export async function startEvmListener() {
     ) => {
       logger.info(
         {
+          chain: config.name,
           token,
           sender,
           amount: amount.toString(),
@@ -102,15 +109,15 @@ export async function startEvmListener() {
           destAddress: normalized.destAddress,
         });
 
-        await persistEvmSourceEvent({ eventId, ev: normalized });
+        await persistEvmSourceEvent({ eventId, ev: normalized, chainConfig: config });
 
         await enqueueLockedCanonical(eventId);
 
-        await updateNetworkStatus(event.blockNumber);
+        await updateNetworkStatus(chainKey, event.blockNumber);
       } catch (error: any) {
         logger.error(
           {
-            chain: 'EVM',
+            chain: config.name,
             stage: 'LIVE_LISTENER',
             action: 'LOCKED_CANONICAL',
             txHash: event.transactionHash,
@@ -140,6 +147,7 @@ export async function startEvmListener() {
     ) => {
       logger.info(
         {
+          chain: config.name,
           wrappedToken,
           sender,
           grossAmount: grossAmount.toString(),
@@ -171,15 +179,15 @@ export async function startEvmListener() {
           destAddress: normalized.destAddress,
         });
 
-        await persistEvmSourceEvent({ eventId, ev: normalized });
+        await persistEvmSourceEvent({ eventId, ev: normalized, chainConfig: config });
 
         await enqueueEvmBurnedWrapped(eventId);
 
-        await updateNetworkStatus(event.blockNumber);
+        await updateNetworkStatus(chainKey, event.blockNumber);
       } catch (error: any) {
         logger.error(
           {
-            chain: 'EVM',
+            chain: config.name,
             stage: 'LIVE_LISTENER',
             action: 'BURNED_WRAPPED',
             txHash: event.transactionHash,
@@ -199,6 +207,7 @@ export async function startEvmListener() {
     async (wrappedToken: string, recipient: string, amount, eventId, event) => {
       logger.info(
         {
+          chain: config.name,
           wrappedToken,
           recipient,
           amount: amount.toString(),
@@ -221,11 +230,11 @@ export async function startEvmListener() {
           eventName: normalized.eventName,
         });
 
-        await updateNetworkStatus(event.blockNumber);
+        await updateNetworkStatus(chainKey, event.blockNumber);
       } catch (error: any) {
         logger.error(
           {
-            chain: 'EVM',
+            chain: config.name,
             stage: 'LIVE_LISTENER',
             action: 'MINTED_WRAPPED',
             txHash: event.transactionHash,
@@ -245,6 +254,7 @@ export async function startEvmListener() {
     async (token: string, recipient: string, amount, eventId, event) => {
       logger.info(
         {
+          chain: config.name,
           token,
           recipient,
           amount: amount.toString(),
@@ -267,11 +277,11 @@ export async function startEvmListener() {
           eventName: normalized.eventName,
         });
 
-        await updateNetworkStatus(event.blockNumber);
+        await updateNetworkStatus(chainKey, event.blockNumber);
       } catch (error: any) {
         logger.error(
           {
-            chain: 'EVM',
+            chain: config.name,
             stage: 'LIVE_LISTENER',
             action: 'UNLOCKED_CANONICAL',
             txHash: event.transactionHash,
@@ -285,4 +295,14 @@ export async function startEvmListener() {
       }
     },
   );
+}
+
+export async function startAllEvmListeners() {
+  const configs = loadEvmChainConfigs();
+  if (configs.length === 0) {
+    await startEvmListener(loadEvmConfig());
+    return;
+  }
+
+  await Promise.all(configs.map((cfg) => startEvmListener(cfg)));
 }

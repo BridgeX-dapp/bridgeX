@@ -12,9 +12,9 @@ export async function checkEvmHealth(): Promise<void> {
 
   // 1. Check RPC connectivity
   const network = await httpProvider.getNetwork();
-  if (network.chainId !== config.EVM_CHAIN_ID) {
+  if (network.chainId !== config.chainId) {
     throw new Error(
-      `EVM chainId mismatch. Expected ${config.EVM_CHAIN_ID}, got ${network.chainId}`,
+      `EVM chainId mismatch. Expected ${config.chainId}, got ${network.chainId}`,
     );
   }
 

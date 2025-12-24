@@ -33,7 +33,7 @@ export function EvmTestPanel() {
   const [tokenAddress, setTokenAddress] = useState("0xc674Fc371792581A12Cd9F452eD7EC24Fba6e7dD")
   const [spenderAddress, setSpenderAddress] = useState("")
   const [recipientBytes32, setRecipientBytes32] = useState("0xddfcf412115cf2641e8182cd29f9996e28d7a2b8954b4b96990b80d70934963c")
-  const [destinationChainId, setDestinationChainId] = useState("50312")
+  const [destinationChainId, setDestinationChainId] = useState("84532")
   const [amountRaw, setAmountRaw] = useState("1")
   const [balance, setBalance] = useState<string | null>(null)
   const [allowance, setAllowance] = useState<string | null>(null)
@@ -280,7 +280,7 @@ export function EvmTestPanel() {
             <Input
               value={destinationChainId}
               onChange={(event) => setDestinationChainId(event.target.value)}
-              placeholder="50312"
+              placeholder="84532"
             />
           </div>
           <div className="space-y-2">

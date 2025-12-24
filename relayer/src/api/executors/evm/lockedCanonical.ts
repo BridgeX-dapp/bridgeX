@@ -54,8 +54,8 @@ export async function handleLockedCanonical(eventId: string) {
     if (destChain.kind !== 'CASPER') {
       throw new Error('destination chain is not CASPER');
     }
-    if (!destToken.contractHash) {
-      throw new Error('destination token missing contractHash');
+    if (!destToken.contractPackageHash) {
+      throw new Error('destination token missing contractPackageHash');
     }
 
     await prisma.transaction.update({
@@ -64,7 +64,7 @@ export async function handleLockedCanonical(eventId: string) {
     });
 
     const { deployHash } = await mintWrappedOnCasper({
-      token: destToken.contractHash,
+      token: destToken.contractPackageHash,
       recipient: tx.destAddress,
       amount,
       sourceChain: evmConfig.EVM_CHAIN_ID,

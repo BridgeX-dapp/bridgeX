@@ -3,8 +3,9 @@ import { Prisma } from '@prisma/client';
 import prisma from '../lib/utils/clients/prisma-client';
 import { logger } from '../lib/utils/logger';
 
-const POLL_INTERVAL_MS = 2000;
-const SNAPSHOT_LIMIT = 50;
+const POLL_INTERVAL_MS = Number(process.env.REALTIME_POLL_INTERVAL_MS ?? 3000);
+const SNAPSHOT_LIMIT = Number(process.env.REALTIME_SNAPSHOT_LIMIT ?? 30);
+const ERROR_BACKOFF_MS = Number(process.env.REALTIME_ERROR_BACKOFF_MS ?? 8000);
 
 type TransactionWithRefs = Prisma.TransactionGetPayload<{
   include: {
@@ -25,12 +26,21 @@ function serializeTransaction(tx: TransactionWithRefs) {
 
 export function startTransactionStream(io: Server) {
   let lastSeen = new Date(0);
+  let lastSeenId = 0;
+  let backoffUntil = 0;
 
   const poller = setInterval(async () => {
+    if (Date.now() < backoffUntil) return;
+
     try {
       const updated = await prisma.transaction.findMany({
-        where: { updatedAt: { gt: lastSeen } },
-        orderBy: { updatedAt: 'asc' },
+        where: {
+          OR: [
+            { updatedAt: { gt: lastSeen } },
+            { updatedAt: lastSeen, id: { gt: lastSeenId } },
+          ],
+        },
+        orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
         take: 100,
         include: {
           sourceChainRef: true,
@@ -41,7 +51,9 @@ export function startTransactionStream(io: Server) {
 
       if (updated.length === 0) return;
 
-      lastSeen = updated[updated.length - 1].updatedAt;
+      const last = updated[updated.length - 1];
+      lastSeen = last.updatedAt;
+      lastSeenId = last.id;
 
       io.emit(
         'transactions:update',
@@ -49,6 +61,7 @@ export function startTransactionStream(io: Server) {
       );
     } catch (err) {
       logger.error({ err }, 'Failed to poll transaction updates');
+      backoffUntil = Date.now() + ERROR_BACKOFF_MS;
     }
   }, POLL_INTERVAL_MS);
 
@@ -57,7 +70,7 @@ export function startTransactionStream(io: Server) {
 
     try {
       const recent = await prisma.transaction.findMany({
-        orderBy: { updatedAt: 'desc' },
+        orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
         take: SNAPSHOT_LIMIT,
         include: {
           sourceChainRef: true,

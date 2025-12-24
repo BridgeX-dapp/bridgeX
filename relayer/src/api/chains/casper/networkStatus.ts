@@ -1,15 +1,14 @@
 import prisma from '../../lib/utils/clients/prisma-client';
 
-export async function updateCasperNetworkStatus(blockHeight: number) {
+export async function updateCasperNetworkStatus(chainKey: string, blockHeight: number) {
   await prisma.networkStatus.upsert({
-    where: { chain: 'CASPER' },
+    where: { chain: chainKey },
     update: {
       lastProcessedBlock: blockHeight,
     },
     create: {
-      chain: 'CASPER',
+      chain: chainKey,
       lastProcessedBlock: blockHeight,
     },
   });
 }
-

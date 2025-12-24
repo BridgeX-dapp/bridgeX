@@ -26,7 +26,7 @@ function hexToBytes32(hex: string): Uint8Array {
 }
 
 export async function unlockCanonicalOnCasper(params: {
-  token: string; // canonical token contract hash (64 hex, no prefix)
+  token: string; // canonical token package hash (64 hex, no prefix)
   recipient: string; // 32-byte account-hash hex
   amount: string; // U256 decimal string (raw units)
   sourceChain: number; // u32
@@ -37,7 +37,7 @@ export async function unlockCanonicalOnCasper(params: {
 
   // Light validation (saves gas)
   if (!params.token || params.token.length !== 64) {
-    throw new Error('token must be 64-hex contract hash (no prefix)');
+    throw new Error('token must be 64-hex package hash (no prefix)');
   }
   if (!params.recipient || params.recipient.replace(/^0x/, '').length !== 64) {
     throw new Error('recipient must be 32 bytes hex (account-hash)');

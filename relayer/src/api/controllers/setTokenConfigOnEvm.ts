@@ -1,9 +1,18 @@
 import expressAsyncHandler from 'express-async-handler';
 import { setTokenConfigOnEvm } from '../chains/evm/bridge-core/setTokenConfig';
+import { resolveEvmChainFromRequest } from './evmChain';
+import { normalizeAmountInput } from '../lib/utils/amount';
 
 export const setTokenConfigEvm = expressAsyncHandler(async (req, res) => {
-  const { token, isWhitelisted, isCanonical, minAmount, maxAmount } =
-    req.body ?? {};
+  const {
+    chain,
+    token,
+    isWhitelisted,
+    isCanonical,
+    minAmount,
+    maxAmount,
+    decimals,
+  } = req.body ?? {};
 
   if (
     !token ||
@@ -16,12 +25,27 @@ export const setTokenConfigEvm = expressAsyncHandler(async (req, res) => {
     return;
   }
 
+  let chainConfig;
+  try {
+    chainConfig = resolveEvmChainFromRequest(chain);
+  } catch (error: any) {
+    res.status(400).json({ error: error?.message ?? 'Invalid chain' });
+    return;
+  }
+
   const { txHash } = await setTokenConfigOnEvm({
     token,
     isWhitelisted: Boolean(isWhitelisted),
     isCanonical: Boolean(isCanonical),
-    minAmount,
-    maxAmount,
+    minAmount: normalizeAmountInput({
+      amount: minAmount,
+      decimals: decimals !== undefined ? Number(decimals) : undefined,
+    }),
+    maxAmount: normalizeAmountInput({
+      amount: maxAmount,
+      decimals: decimals !== undefined ? Number(decimals) : undefined,
+    }),
+    chainConfig,
   });
 
   res.status(200).json({
@@ -29,4 +53,3 @@ export const setTokenConfigEvm = expressAsyncHandler(async (req, res) => {
     txHash,
   });
 });
-

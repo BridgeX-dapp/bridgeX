@@ -1,7 +1,6 @@
 import { CHAIN, Transaction } from '@prisma/client';
 import prisma from './clients/prisma-client';
 import { resolveChainRefId } from './chainResolver';
-import { loadEvmConfig } from '../../chains/evm/config';
 
 function normalizeHex(value: string) {
   return value.startsWith('0x') ? value.toLowerCase() : `0x${value.toLowerCase()}`;
@@ -13,17 +12,17 @@ function isEvmAddress(value: string) {
 }
 
 function isCasperHash(value: string) {
-  const clean = value.startsWith('0x') ? value.slice(2) : value;
+  const clean = value
+    .replace(/^hash-/, '')
+    .replace(/^0x/, '');
   return clean.length === 64;
 }
 
 async function resolveChainIds(tx: Transaction) {
-  const evmConfig = loadEvmConfig();
-
   const sourceChainRefId =
     tx.sourceChainRefId ??
     (tx.sourceChain === CHAIN.EVM
-      ? await resolveChainRefId({ kind: CHAIN.EVM, chainId: evmConfig.EVM_CHAIN_ID })
+      ? null
       : await resolveChainRefId({ kind: CHAIN.CASPER }));
 
   const destChainIdNum =
@@ -50,16 +49,29 @@ async function resolveSourceTokenId(sourceChainRefId: number, token: string) {
     return row?.id ?? null;
   }
   if (isCasperHash(token)) {
-    const clean = token.startsWith('0x') ? token.slice(2) : token;
-    const row = await prisma.token.findUnique({
+    const clean = token
+      .replace(/^hash-/, '')
+      .replace(/^0x/, '');
+    const normalized = clean.toLowerCase();
+    const byHash = await prisma.token.findUnique({
       where: {
         chainId_contractHash: {
           chainId: sourceChainRefId,
-          contractHash: clean.toLowerCase(),
+          contractHash: normalized,
         },
       },
     });
-    return row?.id ?? null;
+    if (byHash) return byHash.id;
+
+    const byPackage = await prisma.token.findUnique({
+      where: {
+        chainId_contractPackageHash: {
+          chainId: sourceChainRefId,
+          contractPackageHash: normalized,
+        },
+      },
+    });
+    return byPackage?.id ?? null;
   }
   return null;
 }

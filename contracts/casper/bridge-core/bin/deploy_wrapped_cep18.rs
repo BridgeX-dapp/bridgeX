@@ -21,11 +21,11 @@ fn main() {
     println!("Deployer: {:?}", deployer);
 
     // 3) Token parameters (CHANGE PER TOKEN)
-    let name = "Wrapped USDC".to_string();
-    let symbol = "wUSDC".to_string();
-    let decimals = 6u8;
+    let name = "Ether.arb".to_string();
+    let symbol = "wETH.arb".to_string();
+    let decimals = 18u8;
     let bridge_core_addr = Address::from_str(
-    "hash-30b29dd949ff3d144469c2d4a75c3936f19411dffbeefd516cd99df6094c6c65" // already deployed bridge
+    "hash-cc3cf45a1fc7556e2a82194a30fb0d87d9080e18330745f62f8bf83bb8bb2008" // already deployed bridge
 ).unwrap();
     //let initial_supply = U256::zero(); // always zero for wrapped tokens
 

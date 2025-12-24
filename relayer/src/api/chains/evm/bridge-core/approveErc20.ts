@@ -8,8 +8,9 @@ export async function approveErc20OnEvm(params: {
   token: string;
   spender: string;
   amount: string | number | bigint;
+  chainConfig?: Parameters<typeof createEvmSigner>[0];
 }) {
-  const signer = createEvmSigner();
+  const signer = createEvmSigner(params.chainConfig);
   const token = new Contract(params.token, erc20Abi, signer);
 
   const tx = await token.approve(
@@ -21,4 +22,3 @@ export async function approveErc20OnEvm(params: {
 
   return { txHash: tx.hash };
 }
-

@@ -1,13 +1,13 @@
 import prisma from '../../lib/utils/clients/prisma-client';
 
-export async function updateEvmNetworkStatus(blockNumber: number) {
+export async function updateEvmNetworkStatus(chainKey: string, blockNumber: number) {
   await prisma.networkStatus.upsert({
-    where: { chain: 'EVM' },
+    where: { chain: chainKey },
     update: {
       lastProcessedBlock: blockNumber,
     },
     create: {
-      chain: 'EVM',
+      chain: chainKey,
       lastProcessedBlock: blockNumber,
     },
   });

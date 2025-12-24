@@ -8,8 +8,9 @@ export async function setTokenConfigOnEvm(params: {
   isCanonical: boolean;
   minAmount: string | number | bigint;
   maxAmount: string | number | bigint;
+  chainConfig?: Parameters<typeof getBridgeCoreContract>[0];
 }) {
-  const bridgeCore = getBridgeCoreContract();
+  const bridgeCore = getBridgeCoreContract(params.chainConfig);
 
   const tx = await bridgeCore.setTokenConfig(
     params.token,
@@ -23,4 +24,3 @@ export async function setTokenConfigOnEvm(params: {
 
   return { txHash: tx.hash };
 }
-

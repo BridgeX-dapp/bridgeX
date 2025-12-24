@@ -21,6 +21,8 @@ import {
   updateCasperDestinationStatus,
 } from './persistEvents';
 
+const CASPER_CHAIN_KEY = 'casper:1';
+
 export function startCasperListener() {
   const ws = createCasperEventStream();
   const restClient = createCasperRestClient();
@@ -42,7 +44,6 @@ export function startCasperListener() {
     logger.error({ chain: 'CASPER', err }, 'Casper WS error');
   });
 
-  // Heartbeat watchdog
   const heartbeatInterval = setInterval(() => {
     if (
       Date.now() - lastPingTimestamp >
@@ -50,22 +51,22 @@ export function startCasperListener() {
     ) {
       logger.error('Casper WS ping timeout; restarting process');
       ws.close();
-      process.exit(1); // Let PM2 / Docker restart
+      process.exit(1);
     }
   }, cfg.PING_CHECK_INTERVAL_IN_MILLSECCONDS);
 
-  /*const statusInterval = setInterval(async () => {
+  const statusInterval = setInterval(async () => {
     try {
       const height = await fetchLatestCasperBlockHeight(restClient);
       lastKnownBlockHeight = height;
-      await updateCasperNetworkStatus(height);
+      await updateCasperNetworkStatus(CASPER_CHAIN_KEY, height);
     } catch (err) {
       logger.error(
         { chain: 'CASPER', err },
         'Failed to refresh Casper network status',
       );
     }
-  }, cfg.PING_CHECK_INTERVAL_IN_MILLSECCONDS);*/
+  }, cfg.PING_CHECK_INTERVAL_IN_MILLSECCONDS);
 
   ws.on('close', (code, reason) => {
     logger.warn(
@@ -73,8 +74,7 @@ export function startCasperListener() {
       'Casper WS closed',
     );
     clearInterval(heartbeatInterval);
-    // clearInterval(statusInterval);
-    // In production: add reconnect logic with backoff
+    clearInterval(statusInterval);
   });
 
   ws.on('message', async (data: Buffer) => {

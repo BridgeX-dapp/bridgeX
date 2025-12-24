@@ -1,5 +1,5 @@
 import { Contract, providers, Event } from 'ethers';
-import { loadEvmConfig } from './config';
+import { EvmChainConfig, loadEvmConfig } from './config';
 import BridgeCoreArtifact from '../evm/abis/bridgeCore.json';
 import { logger } from '../../lib/utils/logger';
 import { NormalizedLockedEvent } from './bridge-core/normalizers/normalizeLockedCanonicalEvent';
@@ -20,11 +20,12 @@ export async function queryLockedCanonicalEvents(
   provider: providers.Provider,
   fromBlock: number,
   toBlock: number,
+  chainConfig?: EvmChainConfig,
 ): Promise<NormalizedLockedEvent[]> {
-  const config = loadEvmConfig();
+  const config = chainConfig ?? loadEvmConfig();
 
   const bridgeCore = new Contract(
-    config.EVM_BRIDGE_CORE_ADDRESS!,
+    config.bridgeCoreAddress,
     (BridgeCoreArtifact as any).abi ?? BridgeCoreArtifact,
     provider,
   );
@@ -34,32 +35,18 @@ export async function queryLockedCanonicalEvents(
   const allEvents: NormalizedLockedEvent[] = [];
 
   logger.info(
-    { fromBlock, toBlock },
+    { chain: config.name, fromBlock, toBlock },
     'Starting chunked backfill for LockedCanonical',
   );
 
   for (let start = fromBlock; start <= toBlock; start += BLOCK_CHUNK_SIZE) {
     const end = Math.min(start + BLOCK_CHUNK_SIZE - 1, toBlock);
 
-    logger.info({ start, end }, 'Fetching LockedCanonical chunk');
+    logger.info({ chain: config.name, start, end }, 'Fetching LockedCanonical chunk');
 
     const events = await bridgeCore.queryFilter(filter, start, end);
 
     for (const ev of events) {
-      /**
-       * LockedCanonical event signature:
-       *
-       * event LockedCanonical(
-       *   address token,
-       *   address sender,
-       *   uint256 grossAmount,
-       *   uint256 netAmount,
-       *   uint256 feeAmount,
-       *   uint256 nonce,
-       *   uint256 destChainId,
-       *   bytes32 destRecipient
-       * )
-       */
       const [
         token,
         sender,
@@ -93,7 +80,7 @@ export async function queryLockedCanonicalEvents(
   }
 
   logger.info(
-    { count: allEvents.length },
+    { chain: config.name, count: allEvents.length },
     'Finished backfill for LockedCanonical',
   );
 

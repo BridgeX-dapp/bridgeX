@@ -5,16 +5,18 @@ import cors from 'cors';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 
-import { startEvmListener } from './chains/evm/listener';
+import { startAllEvmListeners } from './chains/evm/listener';
 import { checkEvmHealth } from './chains/evm/health';
 import lockNative from './routes/lockNative';
-import { runEvmBackfillOnce } from './chains/evm/backFillProcessors';
+import { runAllEvmBackfillsOnce } from './chains/evm/backFillProcessors';
 import { runCasperBackfillOnce } from './chains/casper/backFillProcessors';
 import { generateEventId } from './lib/utils/eventId';
 import { startBridgeWorker } from './executors/bridgeWorker';
 import { startCasperListener } from './chains/casper/listener';
 import { startTransactionStream } from './realtime/transactions';
 import catalogRoutes from './routes/catalog';
+import { getCasperTokenBalance } from './controllers/getCasperTokenBalance';
+import { getCasperTokenAllowance } from './controllers/getCasperTokenAllowance';
 
 dotenv.config();
 
@@ -48,8 +50,13 @@ app.set('io', io);
  * 4. Routes
  * ---------------------------------- */
 //app.get("/", (_, res) => res.send("BridgeX Relayer Running"));
+app.get('/api/v1/health', (_req, res) => {
+  res.status(200).json({ status: 'ok', ts: new Date().toISOString() });
+});
 app.use('/api/v1/tests', lockNative);
 app.use('/api/v1/catalog', catalogRoutes);
+app.get('/api/v1/casper/token-balance', getCasperTokenBalance);
+app.get('/api/v1/casper/token-allowance', getCasperTokenAllowance);
 
 /* ----------------------------------
  * 5. Bootstrap services
@@ -58,10 +65,10 @@ async function bootstrap() {
   console.log('dYs? Bootstrapping BridgeX relayer...');
 
   await checkEvmHealth();
-  //await runEvmBackfillOnce();
+  //await runAllEvmBackfillsOnce();
   //await runCasperBackfillOnce();
   // Start listeners ONCE
-  await startEvmListener();
+  await startAllEvmListeners();
   await startCasperListener();
   await startBridgeWorker();
 

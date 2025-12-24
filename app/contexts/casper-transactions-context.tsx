@@ -104,7 +104,7 @@ export function CasperTransactionsProvider({ children }: { children: React.React
   const getTokenBalance = useCallback(
     async (params: { accountHash: string; tokenContractHash?: string; tokenContractPackageHash?: string }) => {
       const result = await fetchCasperTokenBalance({
-        relayerUrl: `${casperConfig.CASPER_MAIN_RELAYER}/api/v1/test`,
+        relayerUrl: casperConfig.CASPER_MAIN_RELAYER,
         accountHash: params.accountHash,
         contractHash: params.tokenContractHash,
         contractPackageHash: params.tokenContractPackageHash,

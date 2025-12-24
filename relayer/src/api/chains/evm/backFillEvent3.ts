@@ -1,5 +1,5 @@
 import { Contract, providers, Event } from 'ethers';
-import { loadEvmConfig } from './config';
+import { EvmChainConfig, loadEvmConfig } from './config';
 import BridgeCoreArtifact from '../evm/abis/bridgeCore.json';
 import { logger } from '../../lib/utils/logger';
 import { NormalizedLockedEvent } from './bridge-core/normalizers/normalizeLockedCanonicalEvent';
@@ -20,26 +20,26 @@ export async function queryLockedCanonicalEvents3(
   provider: providers.Provider,
   fromBlock: number,
   toBlock: number,
+  chainConfig?: EvmChainConfig,
 ): Promise<NormalizedLockedEvent[]> {
-  const config = loadEvmConfig();
+  const config = chainConfig ?? loadEvmConfig();
 
   const bridgeCore = new Contract(
-    config.EVM_BRIDGE_CORE_ADDRESS!,
+    config.bridgeCoreAddress,
     (BridgeCoreArtifact as any).abi ?? BridgeCoreArtifact,
     provider,
   );
 
   logger.info(
-    { fromBlock, toBlock },
+    { chain: config.name, fromBlock, toBlock },
     'Querying historical LockedCanonical events',
   );
 
-  // Build typed filter
   const filter = bridgeCore.filters.LockedCanonical();
 
   const events = await bridgeCore.queryFilter(filter, fromBlock, toBlock);
 
-  logger.info({ count: events.length }, 'Fetched LockedCanonical events');
+  logger.info({ chain: config.name, count: events.length }, 'Fetched LockedCanonical events');
 
   return events.map((ev) => {
     const [
