@@ -18,6 +18,7 @@ import catalogRoutes from './routes/catalog';
 import { getCasperTokenBalance } from './controllers/getCasperTokenBalance';
 import { getCasperTokenAllowance } from './controllers/getCasperTokenAllowance';
 import { listTransactions } from './controllers/listTransactions';
+import { faucetRequest } from './controllers/faucetRequest';
 
 dotenv.config();
 
@@ -59,6 +60,7 @@ app.use('/api/v1/catalog', catalogRoutes);
 app.get('/api/v1/transactions', listTransactions);
 app.get('/api/v1/casper/token-balance', getCasperTokenBalance);
 app.get('/api/v1/casper/token-allowance', getCasperTokenAllowance);
+app.post('/api/v1/faucet/request', faucetRequest);
 
 /* ----------------------------------
  * 5. Bootstrap services

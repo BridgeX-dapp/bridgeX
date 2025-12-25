@@ -387,7 +387,7 @@ export function BridgeCardSingle({
     <>
       <Card className="bg-card border-border shadow-xl">
         <CardHeader>
-          <CardTitle className="text-2xl">Bridge Assets (Single Token)</CardTitle>
+          <CardTitle className="text-2xl ">Bridge Assets </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           {loading ? <div className="text-sm text-muted-foreground">Loading supported assets...</div> : null}
@@ -403,12 +403,19 @@ export function BridgeCardSingle({
             >
               {sourceToken ? (
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold overflow-hidden">
-                    {sourceToken.logoUrl ? (
-                      <img src={sourceToken.logoUrl} alt={sourceToken.symbol} className="h-10 w-10 object-contain" />
-                    ) : (
-                      sourceToken.symbol.slice(0, 2).toUpperCase()
-                    )}
+                  <div className="relative w-10 h-10">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold overflow-hidden">
+                      {sourceToken.logoUrl ? (
+                        <img src={sourceToken.logoUrl} alt={sourceToken.symbol} className="h-10 w-10 object-contain" />
+                      ) : (
+                        sourceToken.symbol.slice(0, 2).toUpperCase()
+                      )}
+                    </div>
+                    {sourceChain?.logoUrl ? (
+                      <span className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-card border border-border flex items-center justify-center overflow-hidden">
+                        <img src={sourceChain.logoUrl} alt={sourceChain.name} className="h-3 w-3 object-contain" />
+                      </span>
+                    ) : null}
                   </div>
                   <div>
                     <div className="font-semibold">{sourceToken.symbol}</div>
@@ -494,12 +501,19 @@ export function BridgeCardSingle({
             <div className="w-full h-16 flex items-center justify-between rounded-lg border border-border bg-secondary/30 px-4">
               {destToken ? (
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold overflow-hidden">
-                    {destToken.logoUrl ? (
-                      <img src={destToken.logoUrl} alt={destToken.symbol} className="h-10 w-10 object-contain" />
-                    ) : (
-                      destToken.symbol.slice(0, 2).toUpperCase()
-                    )}
+                  <div className="relative w-10 h-10">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold overflow-hidden">
+                      {destToken.logoUrl ? (
+                        <img src={destToken.logoUrl} alt={destToken.symbol} className="h-10 w-10 object-contain" />
+                      ) : (
+                        destToken.symbol.slice(0, 2).toUpperCase()
+                      )}
+                    </div>
+                    {destChain?.logoUrl ? (
+                      <span className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-card border border-border flex items-center justify-center overflow-hidden">
+                        <img src={destChain.logoUrl} alt={destChain.name} className="h-3 w-3 object-contain" />
+                      </span>
+                    ) : null}
                   </div>
                   <div>
                     <div className="font-semibold">{destToken.symbol}</div>
@@ -531,37 +545,39 @@ export function BridgeCardSingle({
                 MAX
               </Button>
             </div>
-            {isEvmChain(sourceChain) && sourceToken ? (
-              <p className="text-xs text-muted-foreground">
-                Balance:{" "}
-                {evmLoading
-                  ? "Loading..."
-                  : evmBalance
-                    ? formatAmountFromBaseUnits(BigInt(evmBalance), sourceToken.decimals)
-                    : "-"}{" "}
-                {sourceToken.symbol} · Allowance:{" "}
-                {evmLoading
-                  ? "Loading..."
-                  : evmAllowance
-                    ? formatAmountFromBaseUnits(BigInt(evmAllowance), sourceToken.decimals)
-                    : "-"}
-              </p>
-            ) : null}
-            {isCasperChain(sourceChain) && sourceToken ? (
-              <p className="text-xs text-muted-foreground">
-                Balance:{" "}
-                {casperLoading
-                  ? "Loading..."
-                  : casperBalance
-                    ? formatAmountFromBaseUnits(BigInt(casperBalance), sourceToken.decimals)
-                    : "-"}{" "}
-                {sourceToken.symbol} · Allowance:{" "}
-                {casperLoading
-                  ? "Loading..."
-                  : casperAllowance
-                    ? formatAmountFromBaseUnits(BigInt(casperAllowance), sourceToken.decimals)
-                    : "-"}
-              </p>
+            {sourceToken && (isEvmChain(sourceChain) || isCasperChain(sourceChain)) ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground justify-between">
+                <span className="font-semibold">Balance</span>
+              
+                <span className="flex items-center gap-1.5">
+                    <div className="relative h-5 w-5">
+                  <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                    {sourceToken.logoUrl ? (
+                      <img src={sourceToken.logoUrl} alt={sourceToken.symbol} className="h-5 w-5 object-contain" />
+                    ) : (
+                      <span className="text-[10px] font-semibold">{sourceToken.symbol.slice(0, 2).toUpperCase()}</span>
+                    )}
+                  </div>
+                  {sourceChain?.logoUrl ? (
+                    <span className="absolute -bottom-1 -right-1 h-2.5 w-2.5 rounded-full bg-card border border-border flex items-center justify-center overflow-hidden">
+                      <img src={sourceChain.logoUrl} alt={sourceChain.name} className="h-2 w-2 object-contain" />
+                    </span>
+                  ) : null}
+                </div>
+                  {isEvmChain(sourceChain)
+                    ? evmLoading
+                      ? "Loading..."
+                      : evmBalance
+                        ? formatAmountFromBaseUnits(BigInt(evmBalance), sourceToken.decimals)
+                        : "-"
+                    : casperLoading
+                      ? "Fetching Balance..."
+                      : casperBalance
+                        ? formatAmountFromBaseUnits(BigInt(casperBalance), sourceToken.decimals)
+                        : "-"}{" "}
+                
+                </span>
+              </div>
             ) : null}
           </div>
 

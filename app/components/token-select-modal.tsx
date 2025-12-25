@@ -50,12 +50,19 @@ export function TokenSelectModal({ open, onOpenChange, onSelectToken, tokens, ti
                   )}
                   onClick={() => onSelectToken(token)}
                 >
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold overflow-hidden">
-                    {token.logoUrl ? (
-                      <img src={token.logoUrl} alt={token.symbol} className="h-10 w-10 object-contain" />
-                    ) : (
-                      token.symbol.slice(0, 2).toUpperCase()
-                    )}
+                  <div className="relative w-10 h-10">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold overflow-hidden">
+                      {token.logoUrl ? (
+                        <img src={token.logoUrl} alt={token.symbol} className="h-10 w-10 object-contain" />
+                      ) : (
+                        token.symbol.slice(0, 2).toUpperCase()
+                      )}
+                    </div>
+                    {token.chain?.logoUrl ? (
+                      <span className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-card border border-border flex items-center justify-center overflow-hidden">
+                        <img src={token.chain.logoUrl} alt={token.chain.name ?? "Chain"} className="h-3 w-3 object-contain" />
+                      </span>
+                    ) : null}
                   </div>
                   <div className="flex-1 text-left">
                     <div className="font-semibold">{token.symbol}</div>

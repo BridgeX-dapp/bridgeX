@@ -9,6 +9,7 @@ type PopularToken = {
   symbol: string
   name: string
   logoUrl?: string | null
+  chain?: { logoUrl?: string | null; name?: string | null }
   balance?: string | null
 }
 
@@ -64,12 +65,19 @@ export function PopularTokens({ tokens, onSelectToken }: PopularTokensProps) {
               "group",
             )}
           >
-            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold group-hover:bg-primary/20 transition-colors overflow-hidden">
-              {token.logoUrl ? (
-                <img src={token.logoUrl} alt={token.symbol} className="h-8 w-8 object-contain" />
-              ) : (
-                token.symbol.slice(0, 2).toUpperCase()
-              )}
+            <div className="relative w-8 h-8">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold group-hover:bg-primary/20 transition-colors overflow-hidden">
+                {token.logoUrl ? (
+                  <img src={token.logoUrl} alt={token.symbol} className="h-8 w-8 object-contain" />
+                ) : (
+                  token.symbol.slice(0, 2).toUpperCase()
+                )}
+              </div>
+              {token.chain?.logoUrl ? (
+                <span className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-card border border-border flex items-center justify-center overflow-hidden">
+                  <img src={token.chain.logoUrl} alt={token.chain.name ?? "Chain"} className="h-2.5 w-2.5 object-contain" />
+                </span>
+              ) : null}
             </div>
             <div className="text-left">
               <div className="font-semibold text-sm">{token.symbol}</div>

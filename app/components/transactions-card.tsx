@@ -6,12 +6,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import { useCasperClientConfig } from "@/contexts/casper-client-config-context"
 import { formatAmountFromBaseUnits } from "@/lib/amount"
+import { buildExplorerTxUrl } from "@/lib/explorer"
 
 type RelayerTransaction = {
   id: number
-  sourceChainRef?: { name?: string | null; displayName?: string | null }
-  destChainRef?: { name?: string | null; displayName?: string | null }
-  tokenRef?: { symbol?: string | null; decimals?: number | null }
+  sender?: string | null
+  destAddress?: string | null
+  sourceTxHash?: string | null
+  destinationTxHash?: string | null
+  sourceChainRef?: { name?: string | null; displayName?: string | null; logoUrl?: string | null }
+  destChainRef?: { name?: string | null; displayName?: string | null; logoUrl?: string | null }
+  tokenRef?: { symbol?: string | null; decimals?: number | null; logoUrl?: string | null }
   amount?: string | null
   status?: string | null
   updatedAt?: string | null
@@ -26,6 +31,14 @@ type TransactionRow = {
   token: string
   status: "pending" | "executing" | "completed" | "failed"
   timestamp: string
+  sender: string
+  recipient: string
+  sourceTxHash: string | null
+  destinationTxHash: string | null
+  sourceChainName: string
+  destChainName: string
+  tokenLogoUrl?: string | null
+  chainLogoUrl?: string | null
 }
 
 const STATUS_MAP: Record<string, TransactionRow["status"]> = {
@@ -71,6 +84,38 @@ function formatAmount(amount: string | null | undefined, decimals?: number | nul
   }
 }
 
+function shortenAddress(value?: string | null) {
+  if (!value) return "-"
+  const trimmed = value.trim()
+  const accountPrefix = "account-hash-"
+  const hashPrefix = "hash-"
+  const hasAccountPrefix = trimmed.startsWith(accountPrefix)
+  const hasHashPrefix = trimmed.startsWith(hashPrefix)
+  const raw = hasAccountPrefix
+    ? trimmed.slice(accountPrefix.length)
+    : hasHashPrefix
+      ? trimmed.slice(hashPrefix.length)
+      : trimmed
+  const has0x = raw.startsWith("0x")
+  const body = has0x ? raw.slice(2) : raw
+  if (body.length <= 8) return trimmed
+  const short = `${body.slice(0, 4)}...${body.slice(-4)}`
+  if (hasAccountPrefix) return `${accountPrefix}${short}`
+  if (hasHashPrefix) return `${hashPrefix}${short}`
+  return `${has0x ? "0x" : ""}${short}`
+}
+
+function formatStatusLabel(status: TransactionRow["status"]) {
+  if (status === "completed") return "Success"
+  if (status === "executing") return "Processing"
+  if (status === "failed") return "Failed"
+  return "Processing"
+}
+
+function shouldIncludeRealtime(tx: RelayerTransaction) {
+  return tx.status === "EXECUTED" || tx.status === "FINALIZED"
+}
+
 export function TransactionsCard() {
   const { CASPER_MAIN_RELAYER, RELAYER_TX_INITIAL_LIMIT, RELAYER_TX_INITIAL_MODE } = useCasperClientConfig()
   const [rows, setRows] = useState<TransactionRow[]>([])
@@ -78,7 +123,7 @@ export function TransactionsCard() {
   const socketRef = useRef<Socket | null>(null)
   const hasInitialLoadRef = useRef(false)
 
-  const limit = RELAYER_TX_INITIAL_LIMIT
+  const limit = Math.max(1, RELAYER_TX_INITIAL_LIMIT || 4)
 
   const applyTransactions = (items: RelayerTransaction[], prepend: boolean) => {
     setRows((prev) => {
@@ -94,6 +139,14 @@ export function TransactionsCard() {
           token: tx.tokenRef?.symbol ?? "-",
           status: toStatus(tx.status),
           timestamp: formatTimestamp(tx.updatedAt ?? tx.createdAt),
+          sender: tx.sender ?? "-",
+          recipient: tx.destAddress ?? "-",
+          sourceTxHash: tx.sourceTxHash ?? null,
+          destinationTxHash: tx.destinationTxHash ?? null,
+          sourceChainName: tx.sourceChainRef?.name ?? "Unknown",
+          destChainName: tx.destChainRef?.name ?? "Unknown",
+          tokenLogoUrl: tx.tokenRef?.logoUrl ?? null,
+          chainLogoUrl: tx.sourceChainRef?.logoUrl ?? null,
         }
         if (idx >= 0) {
           next[idx] = row
@@ -104,7 +157,7 @@ export function TransactionsCard() {
           next.push(row)
         }
       })
-      if (limit && next.length > limit) {
+      if (next.length > limit) {
         next.length = limit
       }
       if (nextAnimated.size > 0) {
@@ -166,7 +219,9 @@ export function TransactionsCard() {
     }
 
     const handleUpdate = (payload: RelayerTransaction[]) => {
-      applyTransactions(payload, true)
+      const filtered = payload.filter(shouldIncludeRealtime)
+      if (filtered.length === 0) return
+      applyTransactions(filtered, true)
     }
 
     socket.on("transactions:snapshot", handleSnapshot)
@@ -199,41 +254,84 @@ export function TransactionsCard() {
                 animatedIds.has(tx.id) && "animate-in fade-in slide-in-from-top-2 duration-500",
               )}
             >
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <div
-                    className={cn(
-                      "w-2 h-2 rounded-full",
-                      tx.status === "completed" && "bg-success",
-                      tx.status === "executing" && "bg-primary animate-pulse",
-                      tx.status === "pending" && "bg-warning animate-pulse",
-                      tx.status === "failed" && "bg-destructive",
-                    )}
-                  />
-                  <span className="font-mono text-sm font-semibold">
-                    {tx.amount} {tx.token}
-                  </span>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="relative h-10 w-10">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                      {tx.tokenLogoUrl ? (
+                        <img src={tx.tokenLogoUrl} alt={tx.token} className="h-10 w-10 object-contain" />
+                      ) : (
+                        <span className="text-xs font-semibold">{tx.token.slice(0, 2).toUpperCase()}</span>
+                      )}
+                    </div>
+                    {tx.chainLogoUrl ? (
+                      <span className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-card border border-border flex items-center justify-center overflow-hidden">
+                        <img src={tx.chainLogoUrl} alt={tx.from} className="h-3 w-3 object-contain" />
+                      </span>
+                    ) : null}
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold">
+                      {tx.amount} {tx.token}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {tx.from} → {tx.to}
+                    </div>
+                  </div>
                 </div>
                 <span
                   className={cn(
-                    "text-xs px-2 py-1 rounded-full capitalize",
+                    "text-xs px-2 py-1 rounded-full",
                     tx.status === "completed" && "bg-success/20 text-success",
                     tx.status === "executing" && "bg-primary/20 text-primary",
-                    tx.status === "pending" && "bg-warning/20 text-warning",
+                    tx.status === "pending" && "bg-primary/10 text-primary",
                     tx.status === "failed" && "bg-destructive/20 text-destructive",
                   )}
                 >
-                  {tx.status}
+                  {formatStatusLabel(tx.status)}
                 </span>
               </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span>{tx.from}</span>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                </svg>
-                <span>{tx.to}</span>
+              <div className="mt-3 grid gap-2 text-xs text-muted-foreground">
+                <div className="flex items-center justify-between">
+                  <span>Sender</span>
+                  <span className="font-mono">{shortenAddress(tx.sender)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Recipient</span>
+                  <span className="font-mono">{shortenAddress(tx.recipient)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Source Tx</span>
+                  {tx.sourceTxHash ? (
+                    <a
+                      className="font-mono text-primary hover:text-primary/80 transition-colors"
+                      href={buildExplorerTxUrl(tx.sourceChainName, tx.sourceTxHash) ?? "#"}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {shortenAddress(tx.sourceTxHash)}
+                    </a>
+                  ) : (
+                    <span>-</span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Dest Tx</span>
+                  {tx.destinationTxHash ? (
+                    <a
+                      className="font-mono text-primary hover:text-primary/80 transition-colors"
+                      href={buildExplorerTxUrl(tx.destChainName, tx.destinationTxHash) ?? "#"}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {shortenAddress(tx.destinationTxHash)}
+                    </a>
+                  ) : (
+                    <span className="text-muted-foreground">Pending</span>
+                  )}
+                </div>
+                <div className="text-[11px] text-muted-foreground">{tx.timestamp}</div>
               </div>
-              <div className="text-xs text-muted-foreground mt-2">{tx.timestamp}</div>
             </div>
           ))}
         </div>
