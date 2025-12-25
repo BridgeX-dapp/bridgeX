@@ -5,7 +5,13 @@ import cors from 'cors';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 
+import { startAllEvmListeners } from './chains/evm/listener';
+import { checkEvmHealth } from './chains/evm/health';
 import lockNative from './routes/lockNative';
+import { runAllEvmBackfillsOnce } from './chains/evm/backFillProcessors';
+import { runCasperBackfillOnce } from './chains/casper/backFillProcessors';
+import { startBridgeWorker } from './executors/bridgeWorker';
+import { startCasperListener } from './chains/casper/listener';
 import { startTransactionStream } from './realtime/transactions';
 import catalogRoutes from './routes/catalog';
 import { getCasperTokenBalance } from './controllers/getCasperTokenBalance';
@@ -58,7 +64,21 @@ app.get('/api/v1/casper/token-allowance', getCasperTokenAllowance);
  * ---------------------------------- */
 async function bootstrap() {
   console.log('dYs? Bootstrapping BridgeX relayer...');
-  console.log('dY`, Web service ready');
+
+  await checkEvmHealth();
+
+  if (process.env.RUN_EVM_BACKFILL_ONCE === 'true') {
+    await runAllEvmBackfillsOnce();
+  }
+  if (process.env.RUN_CASPER_BACKFILL_ONCE === 'true') {
+    await runCasperBackfillOnce();
+  }
+
+  await startAllEvmListeners();
+  await startCasperListener();
+  await startBridgeWorker();
+
+  console.log('dY`, Listeners + worker started');
 }
 
 /* ----------------------------------
