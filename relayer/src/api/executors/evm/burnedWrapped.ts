@@ -71,7 +71,7 @@ export async function handleEvmBurnedWrapped(eventId: string) {
     await prisma.transaction.update({
       where: { eventId },
       data: {
-        status: 'EXECUTED',
+        status: 'EXECUTING',
         destinationTxHash: deployHash.toHex(),
       },
     });
@@ -79,11 +79,11 @@ export async function handleEvmBurnedWrapped(eventId: string) {
     logger.info(
       {
         eventId,
-        status: 'EXECUTED',
+        status: 'EXECUTING',
         destinationTxHash: deployHash,
         durationMs: Date.now() - start,
       },
-      'EVM BurnedWrapped job processed successfully',
+      'EVM BurnedWrapped job submitted',
     );
   } catch (error: any) {
     logger.error(

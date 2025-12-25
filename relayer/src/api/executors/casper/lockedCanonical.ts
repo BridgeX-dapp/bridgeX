@@ -72,7 +72,7 @@ export async function handleCasperLockedCanonical(eventId: string) {
     await prisma.transaction.update({
       where: { eventId },
       data: {
-        status: 'EXECUTED',
+        status: 'EXECUTING',
         destinationTxHash: txHash,
       },
     });
@@ -80,11 +80,11 @@ export async function handleCasperLockedCanonical(eventId: string) {
     logger.info(
       {
         eventId,
-        status: 'EXECUTED',
+        status: 'EXECUTING',
         destinationTxHash: txHash,
         durationMs: Date.now() - start,
       },
-      'Casper LockedCanonical job processed successfully',
+      'Casper LockedCanonical job submitted',
     );
   } catch (error: any) {
     logger.error(

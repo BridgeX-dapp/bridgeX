@@ -70,7 +70,7 @@ export async function handleCasperBurnedWrapped(eventId: string) {
     await prisma.transaction.update({
       where: { eventId },
       data: {
-        status: 'EXECUTED',
+        status: 'EXECUTING',
         destinationTxHash: txHash,
       },
     });
@@ -78,11 +78,11 @@ export async function handleCasperBurnedWrapped(eventId: string) {
     logger.info(
       {
         eventId,
-        status: 'EXECUTED',
+        status: 'EXECUTING',
         destinationTxHash: txHash,
         durationMs: Date.now() - start,
       },
-      'Casper BurnedWrapped job processed successfully',
+      'Casper BurnedWrapped job submitted',
     );
   } catch (error: any) {
     logger.error(

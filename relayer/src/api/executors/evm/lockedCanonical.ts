@@ -74,7 +74,7 @@ export async function handleLockedCanonical(eventId: string) {
     await prisma.transaction.update({
       where: { eventId },
       data: {
-        status: 'EXECUTED',
+        status: 'EXECUTING',
         destinationTxHash: deployHash.toHex(),
       },
     });
@@ -82,11 +82,11 @@ export async function handleLockedCanonical(eventId: string) {
     logger.info(
       {
         eventId,
-        status: 'EXECUTED',
+        status: 'EXECUTING',
         destinationTxHash: deployHash,
         durationMs: Date.now() - start,
       },
-      'LockedCanonical job processed successfully',
+      'LockedCanonical job submitted',
     );
   } catch (error: any) {
     logger.error(

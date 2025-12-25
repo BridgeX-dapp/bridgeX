@@ -12,6 +12,7 @@ import { runAllEvmBackfillsOnce } from './chains/evm/backFillProcessors';
 import { runCasperBackfillOnce } from './chains/casper/backFillProcessors';
 import { startBridgeWorker } from './executors/bridgeWorker';
 import { startCasperListener } from './chains/casper/listener';
+import { startConfirmationPoller } from './executors/confirmations/poller';
 import { startTransactionStream } from './realtime/transactions';
 import catalogRoutes from './routes/catalog';
 import { getCasperTokenBalance } from './controllers/getCasperTokenBalance';
@@ -77,6 +78,7 @@ async function bootstrap() {
   await startAllEvmListeners();
   await startCasperListener();
   await startBridgeWorker();
+  startConfirmationPoller();
 
   console.log('dY`, Listeners + worker started');
 }
