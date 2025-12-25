@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: bridgex-relayer-web
+    runtime: node
+    rootDir: relayer
+    buildCommand: 'pnpm install && pnpm build'
+    startCommand: 'pnpm start'
+    autoDeploy: true
+
+  - type: worker
+    name: bridgex-relayer-worker
+    runtime: node
+    rootDir: relayer
+    buildCommand: 'pnpm install && pnpm build'
+    startCommand: 'pnpm start:worker'
+    autoDeploy: true

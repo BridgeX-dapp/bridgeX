@@ -5,8 +5,11 @@
   "scripts": {
     "postinstall": "npx prisma generate",
     "build": "npx prisma generate && tsc",
-    "start": "node dist/api/server.js",
+    "start": "node dist/api/index.js",
+    "start:web": "node dist/api/index.js",
+    "start:worker": "node dist/api/worker.js",
     "dev": "nodemon src/api/index.ts",
+    "dev:worker": "nodemon src/api/worker.ts",
     "generate": "npx prisma generate",
     "migrate": "npx prisma migrate deploy",
     "push": "npx prisma db push",
