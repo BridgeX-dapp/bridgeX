@@ -1,5 +1,5 @@
 {
-  "name": "web3-pay",
+  "name": "bridgex",
   "version": "1.0.0",
   "main": "src/server.ts",
   "scripts": {
