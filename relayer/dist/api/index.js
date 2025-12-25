@@ -18,11 +18,7 @@ const dotenv_1 = __importDefault(require("dotenv"));
 const cors_1 = __importDefault(require("cors"));
 const http_1 = require("http");
 const socket_io_1 = require("socket.io");
-const listener_1 = require("./chains/evm/listener");
-const health_1 = require("./chains/evm/health");
 const lockNative_1 = __importDefault(require("./routes/lockNative"));
-const bridgeWorker_1 = require("./executors/bridgeWorker");
-const listener_2 = require("./chains/casper/listener");
 const transactions_1 = require("./realtime/transactions");
 const catalog_1 = __importDefault(require("./routes/catalog"));
 const getCasperTokenBalance_1 = require("./controllers/getCasperTokenBalance");
@@ -68,14 +64,7 @@ app.get('/api/v1/casper/token-allowance', getCasperTokenAllowance_1.getCasperTok
 function bootstrap() {
     return __awaiter(this, void 0, void 0, function* () {
         console.log('dYs? Bootstrapping BridgeX relayer...');
-        yield (0, health_1.checkEvmHealth)();
-        //await runAllEvmBackfillsOnce();
-        //await runCasperBackfillOnce();
-        // Start listeners ONCE
-        yield (0, listener_1.startAllEvmListeners)();
-        yield (0, listener_2.startCasperListener)();
-        yield (0, bridgeWorker_1.startBridgeWorker)();
-        console.log('dY`, EVM listener started');
+        console.log('dY`, Web service ready');
     });
 }
 /* ----------------------------------

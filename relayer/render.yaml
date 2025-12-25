@@ -1,16 +1,16 @@
 services:
   - type: web
-    name: bridgex-relayer-web
+    name: bridgex-api
     runtime: node
+    plan: free
     rootDir: relayer
-    buildCommand: 'pnpm install && pnpm build'
-    startCommand: 'pnpm start'
-    autoDeploy: true
+    buildCommand: npm run build
+    startCommand: npm run start:web
 
   - type: worker
-    name: bridgex-relayer-worker
+    name: bridgex-worker
     runtime: node
+    plan: free
     rootDir: relayer
-    buildCommand: 'pnpm install && pnpm build'
-    startCommand: 'pnpm start:worker'
-    autoDeploy: true
+    buildCommand: npm run build
+    startCommand: npm run start:worker
