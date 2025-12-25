@@ -3,6 +3,7 @@ export type CatalogChain = {
   name: string
   kind: "EVM" | "CASPER"
   chainId: number | null
+  evmChainId?: number | null
   displayName?: string | null
   logoUrl?: string | null
 }
@@ -16,6 +17,9 @@ export type CatalogToken = {
   logoUrl?: string | null
   contractAddress?: string | null
   contractHash?: string | null
+  contractPackageHash?: string | null
+  tokenType?: "CANONICAL" | "WRAPPED" | null
+  canonicalChainId?: number | null
   chain?: CatalogChain
 }
 

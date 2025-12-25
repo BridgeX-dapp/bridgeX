@@ -36,13 +36,13 @@ type CasperTransactionsContextValue = {
   }) => Promise<boolean>
   approve: (params: { tokenContractHash: string; amount: bigint; spenderContractHash?: string }) => Promise<CasperTxRecord>
   lock: (params: {
-    tokenContractHash: string
+    tokenContractPackageHash: string
     amount: bigint
     destinationChainId: number
     recipientBytes32Hex: string
   }) => Promise<CasperTxRecord>
   burn: (params: {
-    tokenContractHash: string
+    tokenContractPackageHash: string
     amount: bigint
     destinationChainId: number
     recipientBytes32Hex: string
@@ -224,7 +224,7 @@ export function CasperTransactionsProvider({ children }: { children: React.React
 
   const lock = useCallback(
     async (params: {
-      tokenContractHash: string
+      tokenContractPackageHash: string
       amount: bigint
       destinationChainId: number
       recipientBytes32Hex: string
@@ -235,7 +235,7 @@ export function CasperTransactionsProvider({ children }: { children: React.React
 
       const deploy = buildLockCanonicalDeploy({
         bridgeCoreHash: casperConfig.CASPER_BRIDGE_CORE_HASH,
-        tokenContractHash: params.tokenContractHash,
+        tokenContractPackageHash: params.tokenContractPackageHash,
         amount: params.amount,
         destinationChainId: params.destinationChainId,
         recipientBytes32Hex: params.recipientBytes32Hex,
@@ -257,7 +257,7 @@ export function CasperTransactionsProvider({ children }: { children: React.React
 
   const burn = useCallback(
     async (params: {
-      tokenContractHash: string
+      tokenContractPackageHash: string
       amount: bigint
       destinationChainId: number
       recipientBytes32Hex: string
@@ -268,7 +268,7 @@ export function CasperTransactionsProvider({ children }: { children: React.React
 
       const deploy = buildBurnWrappedDeploy({
         bridgeCoreHash: casperConfig.CASPER_BRIDGE_CORE_HASH,
-        tokenContractHash: params.tokenContractHash,
+        tokenContractPackageHash: params.tokenContractPackageHash,
         amount: params.amount,
         destinationChainId: params.destinationChainId,
         recipientBytes32Hex: params.recipientBytes32Hex,

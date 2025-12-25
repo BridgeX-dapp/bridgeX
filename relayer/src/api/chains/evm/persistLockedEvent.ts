@@ -4,6 +4,7 @@ import prisma from '../../lib/utils/clients/prisma-client';
 import { generateEventId } from '../../lib/utils/eventId';
 import { NormalizedLockedEvent } from './bridge-core/normalizers/normalizeLockedCanonicalEvent';
 import { logger } from '../../lib/utils/logger';
+import { resolveSourceTokenId } from '../../lib/utils/tokenMapping';
 import { resolveChainRefId } from '../../lib/utils/chainResolver';
 import { EvmChainConfig, loadEvmConfig } from './config';
 
@@ -34,11 +35,18 @@ export async function persistLockedCanonicalEvent(
   const destChainRefId = destChainIdNum
     ? await resolveChainRefId({ chainId: destChainIdNum })
     : null;
+  const tokenRefId = ev.token
+    ? await resolveSourceTokenId(sourceChainRefId, ev.token)
+    : null;
 
   try {
     await prisma.transaction.upsert({
       where: { eventId },
-      update: {}, // idempotent ?" no overwrite
+      update: {
+        tokenRefId: tokenRefId ?? undefined,
+        sourceChainRefId,
+        destChainRefId,
+      }, // idempotent
       create: {
         eventId,
 
@@ -61,6 +69,7 @@ export async function persistLockedCanonicalEvent(
 
         sourceChainRefId,
         destChainRefId,
+        tokenRefId,
 
         status: 'LOCKED',
       },

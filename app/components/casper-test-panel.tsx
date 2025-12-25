@@ -20,6 +20,7 @@ export function CasperTestPanel() {
   const { transactions, getTokenBalance, getTokenAllowance, approve, lock, burn } = useCasperTransactions()
  // const cfg = loadCasperConfig()
   const [tokenContractHash, setTokenContractHash] = useState("b80fe386feaaec091183cd0587c5de3fd402e70d3f3b50e28f6b662b9a486d3e")
+  const [tokenPackageHash, setTokenPackageHash] = useState("71ac1a199ad8a5d33bbba9c0fb8357e26db8282c15addfa92db9f36c04b16dc4")
   const [spenderContractHash, setSpenderContractHash] = useState("cc3cf45a1fc7556e2a82194a30fb0d87d9080e18330745f62f8bf83bb8bb2008")
   const [recipientBytes32, setRecipientBytes32] = useState("0x0000000000000000000000005f7260a3595713d6111c1381ba9bd520c0f6b4eb")
   const [destinationChainId, setDestinationChainId] = useState("5")
@@ -130,8 +131,8 @@ export function CasperTestPanel() {
       setError("Connect a Casper wallet first.")
       return
     }
-    if (!tokenContractHash) {
-      setError("Token contract hash is required.")
+    if (!tokenPackageHash) {
+      setError("Token package hash is required.")
       return
     }
     if (!parsedAmount) {
@@ -151,7 +152,7 @@ export function CasperTestPanel() {
     setBusy("lock")
     try {
       await lock({
-        tokenContractHash,
+        tokenContractPackageHash: tokenPackageHash,
         amount: parsedAmount,
         destinationChainId: chainId,
         recipientBytes32Hex: recipientBytes32,
@@ -168,8 +169,8 @@ export function CasperTestPanel() {
       setError("Connect a Casper wallet first.")
       return
     }
-    if (!tokenContractHash) {
-      setError("Token contract hash is required.")
+    if (!tokenPackageHash) {
+      setError("Token package hash is required.")
       return
     }
     if (!parsedAmount) {
@@ -189,7 +190,7 @@ export function CasperTestPanel() {
     setBusy("burn")
     try {
       await burn({
-        tokenContractHash,
+        tokenContractPackageHash: tokenPackageHash,
         amount: parsedAmount,
         destinationChainId: chainId,
         recipientBytes32Hex: recipientBytes32,
@@ -218,6 +219,16 @@ export function CasperTestPanel() {
             value={tokenContractHash}
             onChange={(event) => setTokenContractHash(event.target.value.trim())}
             placeholder="acc0756a..."
+            className="font-mono"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Token Package Hash</Label>
+          <Input
+            value={tokenPackageHash}
+            onChange={(event) => setTokenPackageHash(event.target.value.trim())}
+            placeholder="package hash (lock/burn)"
             className="font-mono"
           />
         </div>

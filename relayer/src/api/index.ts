@@ -17,6 +17,7 @@ import { startTransactionStream } from './realtime/transactions';
 import catalogRoutes from './routes/catalog';
 import { getCasperTokenBalance } from './controllers/getCasperTokenBalance';
 import { getCasperTokenAllowance } from './controllers/getCasperTokenAllowance';
+import { listTransactions } from './controllers/listTransactions';
 
 dotenv.config();
 
@@ -55,6 +56,7 @@ app.get('/api/v1/health', (_req, res) => {
 });
 app.use('/api/v1/tests', lockNative);
 app.use('/api/v1/catalog', catalogRoutes);
+app.get('/api/v1/transactions', listTransactions);
 app.get('/api/v1/casper/token-balance', getCasperTokenBalance);
 app.get('/api/v1/casper/token-allowance', getCasperTokenAllowance);
 

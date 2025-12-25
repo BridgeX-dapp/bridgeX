@@ -50,7 +50,7 @@ export function buildApproveDeploy(params: {
 
 export function buildLockCanonicalDeploy(params: {
   bridgeCoreHash: string
-  tokenContractHash: string
+  tokenContractPackageHash: string
   amount: bigint
   destinationChainId: number
   recipientBytes32Hex: string
@@ -59,7 +59,7 @@ export function buildLockCanonicalDeploy(params: {
   senderPublicKeyHex: string
 }): Deploy {
   const args = Args.fromMap({
-    token: clKeyFromContractHash(params.tokenContractHash),
+    token: clKeyFromContractHash(params.tokenContractPackageHash),
     amount: CLValue.newCLUInt256(params.amount),
     destination_chain: CLValue.newCLUInt32(params.destinationChainId),
     recipient: CLValue.newCLByteArray(hexToBytes32(params.recipientBytes32Hex)),
@@ -83,7 +83,7 @@ export function buildLockCanonicalDeploy(params: {
 
 export function buildBurnWrappedDeploy(params: {
   bridgeCoreHash: string
-  tokenContractHash: string
+  tokenContractPackageHash: string
   amount: bigint
   destinationChainId: number
   recipientBytes32Hex: string
@@ -92,7 +92,7 @@ export function buildBurnWrappedDeploy(params: {
   senderPublicKeyHex: string
 }): Deploy {
   const args = Args.fromMap({
-    token: clKeyFromContractHash(params.tokenContractHash),
+    token: clKeyFromContractHash(params.tokenContractPackageHash),
     amount: CLValue.newCLUInt256(params.amount),
     destination_chain: CLValue.newCLUInt32(params.destinationChainId),
     recipient: CLValue.newCLByteArray(hexToBytes32(params.recipientBytes32Hex)),

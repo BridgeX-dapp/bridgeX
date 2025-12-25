@@ -36,7 +36,7 @@ async function resolveChainIds(tx: Transaction) {
   return { sourceChainRefId, destChainRefId };
 }
 
-async function resolveSourceTokenId(sourceChainRefId: number, token: string) {
+export async function resolveSourceTokenId(sourceChainRefId: number, token: string) {
   if (isEvmAddress(token)) {
     const row = await prisma.token.findUnique({
       where: {

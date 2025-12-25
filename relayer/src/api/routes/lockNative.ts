@@ -14,6 +14,12 @@ import { approveErc20Evm } from '../controllers/approveErc20OnEvm';
 import { testFetcher } from '../controllers/hello';
 import { getCasperTokenBalance } from '../controllers/getCasperTokenBalance';
 import { getCasperTokenAllowance } from '../controllers/getCasperTokenAllowance';
+import {
+  drainQueue,
+  getQueueStatus,
+  pauseQueue,
+  resumeQueue,
+} from '../controllers/queueAdmin';
 
 const router = express.Router();
 
@@ -35,5 +41,11 @@ router.route('/burn-wrapped').post(burnWrappedCasper);
 router.route('/debug').post(debugGetTokenConfig);
 router.route('/casper/token-balance').get(getCasperTokenBalance);
 router.route('/casper/token-allowance').get(getCasperTokenAllowance);
+
+// Queue admin (no auth for MVP)
+router.route('/queue/status').get(getQueueStatus);
+router.route('/queue/drain').post(drainQueue);
+router.route('/queue/pause').post(pauseQueue);
+router.route('/queue/resume').post(resumeQueue);
 
 export default router;

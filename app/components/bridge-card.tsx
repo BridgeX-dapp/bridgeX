@@ -11,13 +11,18 @@ import { TokenSelectModal } from "@/components/token-select-modal"
 import { RecipientModal } from "@/components/recipient-modal"
 import { ChainSelectModal } from "@/components/chain-select-modal"
 import { PopularTokens } from "@/components/popular-tokens"
+import { TransactionStatusModal } from "@/components/transaction-status-modal"
 import { useRelayerCatalog } from "@/contexts/relayer-catalog-context"
 import { useEvmWallet } from "@/contexts/evm-wallet-context"
 import { useCasperWallet } from "@/contexts/casper-wallet-context"
+import { useCasperTransactions } from "@/contexts/casper-transactions-context"
 import { useEvmClientConfig } from "@/contexts/evm-client-config-context"
+import { useBridgeTransaction } from "@/hooks/use-bridge-transaction"
 import { resolveBridgeCoreAddress } from "@/lib/evm/config"
 import { erc20Abi } from "@/lib/evm/erc20-abi"
 import { formatCasperRecipient, formatEvmRecipient } from "@/lib/recipient"
+import { formatAmountFromBaseUnits } from "@/lib/amount"
+import { parseAmountToBaseUnits } from "@/lib/amount"
 
 type BridgeCardProps = {
   initialSourceChain?: string
@@ -38,6 +43,10 @@ function isEvmChain(chain?: CatalogChain | null) {
   return chain?.kind === "EVM"
 }
 
+function isCasperChain(chain?: CatalogChain | null) {
+  return chain?.kind === "CASPER"
+}
+
 function uniqueById<T extends { id: number }>(items: T[]) {
   const seen = new Set<number>()
   return items.filter((item) => {
@@ -51,6 +60,7 @@ export function BridgeCard({ initialSourceChain, initialDestChain, initialSource
   const { chains, tokens, tokenPairs, loading, error } = useRelayerCatalog()
   const { address, chainId: walletChainId, switchChain, connect } = useEvmWallet()
   const casperWallet = useCasperWallet()
+  const casperTx = useCasperTransactions()
   const evmConfig = useEvmClientConfig()
   const [showSourceTokenModal, setShowSourceTokenModal] = useState(false)
   const [showDestTokenModal, setShowDestTokenModal] = useState(false)
@@ -67,10 +77,14 @@ export function BridgeCard({ initialSourceChain, initialDestChain, initialSource
   const [recipient, setRecipient] = useState<string>("")
   const [recipientTouched, setRecipientTouched] = useState(false)
   const [recipientError, setRecipientError] = useState<string | null>(null)
+  const [isCheckingAllowance, setIsCheckingAllowance] = useState(false)
 
   const [evmBalance, setEvmBalance] = useState<string | null>(null)
   const [evmAllowance, setEvmAllowance] = useState<string | null>(null)
   const [evmLoading, setEvmLoading] = useState(false)
+  const [casperBalance, setCasperBalance] = useState<string | null>(null)
+  const [casperAllowance, setCasperAllowance] = useState<string | null>(null)
+  const [casperLoading, setCasperLoading] = useState(false)
 
   const chainMap = useMemo(() => new Map(chains.map((chain) => [chain.id, chain])), [chains])
   const tokenMap = useMemo(() => new Map(tokens.map((token) => [token.id, token])), [tokens])
@@ -123,11 +137,25 @@ export function BridgeCard({ initialSourceChain, initialDestChain, initialSource
     return uniqueById(tokensForChain).sort((a, b) => a.symbol.localeCompare(b.symbol))
   }, [pairsWithRefs, sourceChain, sourceToken, destChain])
 
+  const bridgeTx = useBridgeTransaction({
+    sourceChain,
+    destChain,
+    sourceToken,
+    destToken,
+    amount,
+    recipient,
+  })
+
+  const parsedAmount = useMemo(() => {
+    if (!sourceToken) return null
+    return parseAmountToBaseUnits(amount, sourceToken.decimals)
+  }, [amount, sourceToken])
+
   useEffect(() => {
     if (!chains.length) return
     if (!sourceChain) {
       const baseSepolia = chains.find(
-        (chain) => chain.chainId === 84532 || normalizeChainName(chain.name) === "basesepolia",
+        (chain) => chain.evmChainId === 84532 || normalizeChainName(chain.name) === "basesepolia",
       )
       setSourceChain(baseSepolia ?? chains[0])
     }
@@ -187,10 +215,21 @@ export function BridgeCard({ initialSourceChain, initialDestChain, initialSource
   const needsSwitch =
     requiresEvmWallet &&
     !needsConnect &&
-    Boolean(sourceChain?.chainId && walletChainId && sourceChain.chainId !== walletChainId)
+    Boolean(sourceChain?.evmChainId && walletChainId && sourceChain.evmChainId !== walletChainId)
+  const needsCasperConnect = isCasperChain(sourceChain) && !casperWallet.account?.public_key
+
+  const evmInsufficientBalance =
+    isEvmChain(sourceChain) && parsedAmount !== null && evmBalance !== null
+      ? BigInt(evmBalance) < parsedAmount
+      : false
+  const casperInsufficientBalance =
+    isCasperChain(sourceChain) && parsedAmount !== null && casperBalance !== null
+      ? BigInt(casperBalance) < parsedAmount
+      : false
+  const isBalanceBlocked = evmInsufficientBalance || casperInsufficientBalance
 
   const publicClient = usePublicClient({
-    chainId: sourceChain?.chainId ?? undefined,
+    chainId: sourceChain?.evmChainId ?? undefined,
   })
 
   useEffect(() => {
@@ -200,7 +239,7 @@ export function BridgeCard({ initialSourceChain, initialDestChain, initialSource
         setEvmAllowance(null)
         return
       }
-      if (!address || !sourceToken?.contractAddress || !sourceChain?.chainId) {
+      if (!address || !sourceToken?.contractAddress || !sourceChain?.evmChainId) {
         setEvmBalance(null)
         setEvmAllowance(null)
         return
@@ -214,7 +253,7 @@ export function BridgeCard({ initialSourceChain, initialDestChain, initialSource
           functionName: "balanceOf",
           args: [address as `0x${string}`],
         })
-        const spender = resolveBridgeCoreAddress(evmConfig, sourceChain.chainId)
+        const spender = resolveBridgeCoreAddress(evmConfig, sourceChain.evmChainId)
         const allowance = await publicClient.readContract({
           address: sourceToken.contractAddress as `0x${string}`,
           abi: erc20Abi,
@@ -233,6 +272,42 @@ export function BridgeCard({ initialSourceChain, initialDestChain, initialSource
 
     fetchEvmState()
   }, [address, evmConfig, publicClient, sourceChain, sourceToken])
+
+  useEffect(() => {
+    const fetchCasperState = async () => {
+      if (!isCasperChain(sourceChain)) {
+        setCasperBalance(null)
+        setCasperAllowance(null)
+        return
+      }
+      if (!casperWallet.accountHash || !sourceToken?.contractHash) {
+        setCasperBalance(null)
+        setCasperAllowance(null)
+        return
+      }
+      setCasperLoading(true)
+      try {
+        const balance = await casperTx.getTokenBalance({
+          accountHash: casperWallet.accountHash,
+          tokenContractHash: sourceToken.contractHash,
+          tokenContractPackageHash: sourceToken.contractPackageHash ?? undefined,
+        })
+        const allowance = await casperTx.getTokenAllowance({
+          ownerAccountHash: casperWallet.accountHash,
+          tokenContractHash: sourceToken.contractHash,
+        })
+        setCasperBalance(balance)
+        setCasperAllowance(allowance.toString())
+      } catch {
+        setCasperBalance(null)
+        setCasperAllowance(null)
+      } finally {
+        setCasperLoading(false)
+      }
+    }
+
+    fetchCasperState()
+  }, [casperTx, casperWallet.accountHash, sourceChain, sourceToken])
 
   const recipientFormat = useMemo(() => {
     if (!recipient) return null
@@ -265,25 +340,44 @@ export function BridgeCard({ initialSourceChain, initialDestChain, initialSource
   }, [address, casperWallet.account?.public_key, destChain?.kind, recipient, recipientTouched])
 
   const bridgeDisabled =
-    !sourceToken || !destToken || !amount || !recipient || !sourceChain || !destChain || Boolean(recipientError)
-  const actionDisabled = !(needsConnect || needsSwitch || !bridgeDisabled)
+    !sourceToken ||
+    !destToken ||
+    !amount ||
+    !recipient ||
+    !sourceChain ||
+    !destChain ||
+    Boolean(recipientError) ||
+    isBalanceBlocked
+  const actionDisabled = !(needsConnect || needsSwitch || needsCasperConnect || !bridgeDisabled) || isCheckingAllowance
 
   const actionLabel = needsConnect
     ? "Connect EVM Wallet"
+    : needsCasperConnect
+      ? "Connect Casper Wallet"
     : needsSwitch
       ? `Switch chain to ${sourceChain ? resolveChainDisplayName(sourceChain) : ""}`
       : "Bridge Assets"
 
-  const handleAction = () => {
+  const handleAction = async () => {
     if (needsConnect) {
       connect()
       return
     }
+    if (needsCasperConnect) {
+      casperWallet.connect()
+      return
+    }
     if (needsSwitch) {
-      if (sourceChain?.chainId) {
-        switchChain(sourceChain.chainId)
+      if (sourceChain?.evmChainId) {
+        switchChain(sourceChain.evmChainId)
       }
       return
+    }
+    setIsCheckingAllowance(true)
+    try {
+      await bridgeTx.startBridge()
+    } finally {
+      setIsCheckingAllowance(false)
     }
   }
 
@@ -469,8 +563,34 @@ export function BridgeCard({ initialSourceChain, initialDestChain, initialSource
             </div>
             {isEvmChain(sourceChain) && sourceToken ? (
               <p className="text-xs text-muted-foreground">
-                Balance: {evmLoading ? "Loading..." : evmBalance ?? "-"} {sourceToken.symbol} • Allowance:{" "}
-                {evmLoading ? "Loading..." : evmAllowance ?? "-"}
+                Balance:{" "}
+                {evmLoading
+                  ? "Loading..."
+                  : evmBalance
+                    ? formatAmountFromBaseUnits(BigInt(evmBalance), sourceToken.decimals)
+                    : "-"}{" "}
+                {sourceToken.symbol} · Allowance:{" "}
+                {evmLoading
+                  ? "Loading..."
+                  : evmAllowance
+                    ? formatAmountFromBaseUnits(BigInt(evmAllowance), sourceToken.decimals)
+                    : "-"}
+              </p>
+            ) : null}
+            {isCasperChain(sourceChain) && sourceToken ? (
+              <p className="text-xs text-muted-foreground">
+                Balance:{" "}
+                {casperLoading
+                  ? "Loading..."
+                  : casperBalance
+                    ? formatAmountFromBaseUnits(BigInt(casperBalance), sourceToken.decimals)
+                    : "-"}{" "}
+                {sourceToken.symbol} · Allowance:{" "}
+                {casperLoading
+                  ? "Loading..."
+                  : casperAllowance
+                    ? formatAmountFromBaseUnits(BigInt(casperAllowance), sourceToken.decimals)
+                    : "-"}
               </p>
             ) : null}
           </div>
@@ -514,21 +634,35 @@ export function BridgeCard({ initialSourceChain, initialDestChain, initialSource
                     isWalletSectionExpanded ? "max-h-32 opacity-100" : "max-h-0 opacity-0"
                   } overflow-hidden`}
                 >
-                  <div className="p-4 pt-0 grid grid-cols-2 gap-2">
-                    <Button
-                      variant="outline"
-                      className="h-12 bg-background hover:bg-accent transition-colors"
-                      onClick={() => {
-                        handleRecipientConnect()
-                        setIsWalletSectionExpanded(false)
-                      }}
-                    >
-                      {destChain?.kind === "CASPER"
-                        ? "Connect Casper Wallet"
-                        : destChain?.kind === "EVM"
-                          ? "Connect EVM Wallet"
-                          : "Connect Wallet"}
-                    </Button>
+                <div className="p-4 pt-0 grid grid-cols-2 gap-2">
+                    {((destChain?.kind === "EVM" && address) ||
+                    (destChain?.kind === "CASPER" && casperWallet.account?.public_key)) ? (
+                      <Button
+                        variant="outline"
+                        className="h-12 bg-background hover:bg-accent transition-colors"
+                        onClick={() => {
+                          handleUseConnectedRecipient()
+                          setIsWalletSectionExpanded(false)
+                        }}
+                      >
+                        Use connected wallet
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        className="h-12 bg-background hover:bg-accent transition-colors"
+                        onClick={() => {
+                          handleRecipientConnect()
+                          setIsWalletSectionExpanded(false)
+                        }}
+                      >
+                        {destChain?.kind === "CASPER"
+                          ? "Connect Casper Wallet"
+                          : destChain?.kind === "EVM"
+                            ? "Connect EVM Wallet"
+                            : "Connect Wallet"}
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       className="h-12 bg-background hover:bg-accent transition-colors"
@@ -559,7 +693,7 @@ export function BridgeCard({ initialSourceChain, initialDestChain, initialSource
             disabled={actionDisabled}
             onClick={handleAction}
           >
-            {actionLabel}
+            {isCheckingAllowance ? "Checking allowance..." : actionLabel}
           </Button>
 
           <div className="grid grid-cols-2 gap-3 pt-2">
@@ -627,6 +761,24 @@ export function BridgeCard({ initialSourceChain, initialDestChain, initialSource
         }}
         chains={destChainOptions}
         title="Select Destination Chain"
+      />
+
+      <TransactionStatusModal
+        open={bridgeTx.state.open}
+        step={bridgeTx.state.step}
+        isLoading={bridgeTx.state.isLoading}
+        errorMessage={bridgeTx.state.errorMessage}
+        errorStep={bridgeTx.state.errorStep}
+        sourceTxHash={bridgeTx.state.sourceTxHash}
+        destTxHash={bridgeTx.state.destTxHash}
+        sourceChainName={sourceChain?.name ?? null}
+        destChainName={destChain?.name ?? null}
+        onOpenChange={(next) => {
+          if (!next) bridgeTx.closeModal()
+        }}
+        onIncreaseAllowance={bridgeTx.executeApproval}
+        onContinue={bridgeTx.continueAfterApproval}
+        onRetry={bridgeTx.retry}
       />
     </>
   )

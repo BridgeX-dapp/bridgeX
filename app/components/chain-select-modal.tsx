@@ -58,7 +58,7 @@ export function ChainSelectModal({ open, onOpenChange, onSelectChain, title, cha
                 <div className="text-left flex-1">
                   <div className="font-semibold">{chain.displayName ?? chain.name}</div>
                   <div className="text-xs text-muted-foreground">
-                    {chain.kind} {chain.chainId ? `• ${chain.chainId}` : ""}
+                    {chain.kind} {chain.evmChainId || chain.chainId ? `• ${chain.evmChainId ?? chain.chainId}` : ""}
                   </div>
                 </div>
                 <svg

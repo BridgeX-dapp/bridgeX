@@ -9,7 +9,7 @@ export const bridgeQueue = new Queue('bridge-jobs', {
       type: 'exponential',
       delay: 5_000, // 5s, 10s, 20s, ...
     },
-    removeOnComplete: false,
-    removeOnFail: false,
+    removeOnComplete: true,
+    removeOnFail: 100,
   },
 });

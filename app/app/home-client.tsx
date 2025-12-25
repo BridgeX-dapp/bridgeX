@@ -3,11 +3,8 @@
 import { useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { ConnectButton } from "@rainbow-me/rainbowkit"
-import { BridgeCard } from "@/components/bridge-card"
 import { BridgeCardSingle } from "@/components/bridge-card-single"
 import { TransactionsCard } from "@/components/transactions-card"
-import { CasperTestPanel } from "@/components/casper-test-panel"
-import { EvmTestPanel } from "@/components/evm-test-panel"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useCasperWallet } from "@/contexts/casper-wallet-context"
@@ -80,25 +77,15 @@ export default function HomeClient() {
                   initialSourceToken={sourceToken}
                 />
               ) : (
-                <>
-                  <BridgeCardSingle
-                    initialSourceChain={sourceChain}
-                    initialDestChain={destChain}
-                    initialSourceToken={sourceToken}
-                  />
-                  <BridgeCard
-                    initialSourceChain={sourceChain}
-                    initialDestChain={destChain}
-                    initialSourceToken={sourceToken}
-                    initialDestToken={destToken}
-                  />
-                </>
+                <BridgeCardSingle
+                  initialSourceChain={sourceChain}
+                  initialDestChain={destChain}
+                  initialSourceToken={sourceToken}
+                />
               )}
             </div>
             {mode === "advanced" && (
               <div className="animate-in fade-in slide-in-from-right-4 duration-500 space-y-6">
-                <CasperTestPanel />
-                <EvmTestPanel />
                 <TransactionsCard />
               </div>
             )}

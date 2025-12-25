@@ -1,11 +1,25 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useRef, useState } from "react"
+import { io, type Socket } from "socket.io-client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
+import { useCasperClientConfig } from "@/contexts/casper-client-config-context"
+import { formatAmountFromBaseUnits } from "@/lib/amount"
 
-type Transaction = {
-  id: string
+type RelayerTransaction = {
+  id: number
+  sourceChainRef?: { name?: string | null; displayName?: string | null }
+  destChainRef?: { name?: string | null; displayName?: string | null }
+  tokenRef?: { symbol?: string | null; decimals?: number | null }
+  amount?: string | null
+  status?: string | null
+  updatedAt?: string | null
+  createdAt?: string | null
+}
+
+type TransactionRow = {
+  id: number
   from: string
   to: string
   amount: string
@@ -14,92 +28,157 @@ type Transaction = {
   timestamp: string
 }
 
-const INITIAL_TRANSACTIONS: Transaction[] = [
-  {
-    id: "1",
-    from: "Ethereum",
-    to: "Arbitrum",
-    amount: "0.5",
-    token: "ETH",
-    status: "completed",
-    timestamp: "2 min ago",
-  },
-  {
-    id: "2",
-    from: "Arbitrum",
-    to: "Ethereum",
-    amount: "100",
-    token: "USDC",
-    status: "executing",
-    timestamp: "5 min ago",
-  },
-  {
-    id: "3",
-    from: "Ethereum",
-    to: "Polygon",
-    amount: "1.2",
-    token: "ETH",
-    status: "completed",
-    timestamp: "15 min ago",
-  },
-]
+const STATUS_MAP: Record<string, TransactionRow["status"]> = {
+  LOCKED: "pending",
+  BURNED: "pending",
+  QUEUED: "pending",
+  EXECUTING: "executing",
+  EXECUTED: "completed",
+  FINALIZED: "completed",
+  FAILED: "failed",
+}
 
-const NEW_TRANSACTIONS: Transaction[] = [
-  {
-    id: "4",
-    from: "Polygon",
-    to: "Arbitrum",
-    amount: "250",
-    token: "USDC",
-    status: "pending",
-    timestamp: "Just now",
-  },
-  {
-    id: "5",
-    from: "Base",
-    to: "Optimism",
-    amount: "0.8",
-    token: "ETH",
-    status: "pending",
-    timestamp: "Just now",
-  },
-]
+function toStatus(value?: string | null): TransactionRow["status"] {
+  if (!value) return "pending"
+  return STATUS_MAP[value] ?? "pending"
+}
+
+function formatTimestamp(value?: string | null) {
+  if (!value) return "Just now"
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return "Just now"
+  const diffSeconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000))
+  if (diffSeconds < 60) return "Just now"
+  const diffMinutes = Math.floor(diffSeconds / 60)
+  if (diffMinutes < 60) return `${diffMinutes} min ago`
+  const diffHours = Math.floor(diffMinutes / 60)
+  if (diffHours < 24) return `${diffHours}h ago`
+  const diffDays = Math.floor(diffHours / 24)
+  return `${diffDays}d ago`
+}
+
+function resolveChainName(chain?: { name?: string | null; displayName?: string | null }) {
+  return chain?.displayName ?? chain?.name ?? "Unknown"
+}
+
+function formatAmount(amount: string | null | undefined, decimals?: number | null) {
+  if (!amount) return "0"
+  if (!Number.isFinite(decimals ?? 0)) return amount
+  try {
+    return formatAmountFromBaseUnits(BigInt(amount), decimals ?? 0)
+  } catch {
+    return amount
+  }
+}
 
 export function TransactionsCard() {
-  const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS)
+  const { CASPER_MAIN_RELAYER, RELAYER_TX_INITIAL_LIMIT, RELAYER_TX_INITIAL_MODE } = useCasperClientConfig()
+  const [rows, setRows] = useState<TransactionRow[]>([])
+  const [animatedIds, setAnimatedIds] = useState<Set<number>>(new Set())
+  const socketRef = useRef<Socket | null>(null)
+  const hasInitialLoadRef = useRef(false)
+
+  const limit = RELAYER_TX_INITIAL_LIMIT
+
+  const applyTransactions = (items: RelayerTransaction[], prepend: boolean) => {
+    setRows((prev) => {
+      const next = [...prev]
+      const nextAnimated = new Set<number>()
+      items.forEach((tx) => {
+        const idx = next.findIndex((row) => row.id === tx.id)
+        const row: TransactionRow = {
+          id: tx.id,
+          from: resolveChainName(tx.sourceChainRef),
+          to: resolveChainName(tx.destChainRef),
+          amount: formatAmount(tx.amount ?? undefined, tx.tokenRef?.decimals),
+          token: tx.tokenRef?.symbol ?? "-",
+          status: toStatus(tx.status),
+          timestamp: formatTimestamp(tx.updatedAt ?? tx.createdAt),
+        }
+        if (idx >= 0) {
+          next[idx] = row
+        } else if (prepend) {
+          next.unshift(row)
+          nextAnimated.add(tx.id)
+        } else {
+          next.push(row)
+        }
+      })
+      if (limit && next.length > limit) {
+        next.length = limit
+      }
+      if (nextAnimated.size > 0) {
+        setAnimatedIds((prevSet) => {
+          const merged = new Set(prevSet)
+          nextAnimated.forEach((id) => merged.add(id))
+          return merged
+        })
+        setTimeout(() => {
+          setAnimatedIds((prevSet) => {
+            const merged = new Set(prevSet)
+            nextAnimated.forEach((id) => merged.delete(id))
+            return merged
+          })
+        }, 900)
+      }
+      return next
+    })
+  }
 
   useEffect(() => {
-    // Add new transactions after 3 seconds
-    const addNewTxTimeout = setTimeout(() => {
-      setTransactions((prev) => [NEW_TRANSACTIONS[0], ...prev])
-    }, 3000)
+    const fetchLatest = async () => {
+      try {
+        const url = new URL("/api/v1/transactions", CASPER_MAIN_RELAYER)
+        const response = await fetch(url.toString())
+        if (!response.ok) return
+        const data = await response.json()
+        const transactions = (data.transactions ?? []) as RelayerTransaction[]
+        if (transactions.length > 0) {
+          hasInitialLoadRef.current = true
+          applyTransactions(transactions.slice(0, limit), false)
+        }
+      } catch {
+        // ignore fetch errors
+      }
+    }
 
-    // Add another transaction after 6 seconds
-    const addSecondTxTimeout = setTimeout(() => {
-      setTransactions((prev) => [NEW_TRANSACTIONS[1], ...prev])
-    }, 6000)
-
-    // Update transaction statuses
-    const statusInterval = setInterval(() => {
-      setTransactions((prev) =>
-        prev.map((tx) => {
-          if (tx.status === "pending") {
-            return { ...tx, status: "executing" as const }
-          }
-          if (tx.status === "executing") {
-            return { ...tx, status: "completed" as const }
-          }
-          return tx
-        }),
-      )
-    }, 4000)
+    if (RELAYER_TX_INITIAL_MODE === "latest") {
+      fetchLatest()
+    }
 
     return () => {
-      clearTimeout(addNewTxTimeout)
-      clearTimeout(addSecondTxTimeout)
-      clearInterval(statusInterval)
+      // cleanup handled in socket effect
     }
-  }, [])
+  }, [CASPER_MAIN_RELAYER, RELAYER_TX_INITIAL_MODE, limit])
+
+  useEffect(() => {
+    if (!socketRef.current) {
+      socketRef.current = io(CASPER_MAIN_RELAYER, { transports: ["websocket"] })
+    }
+
+    const socket = socketRef.current
+
+    const handleSnapshot = (payload: RelayerTransaction[]) => {
+      if (RELAYER_TX_INITIAL_MODE === "snapshot" && !hasInitialLoadRef.current) {
+        hasInitialLoadRef.current = true
+        applyTransactions(payload.slice(0, limit), false)
+      }
+    }
+
+    const handleUpdate = (payload: RelayerTransaction[]) => {
+      applyTransactions(payload, true)
+    }
+
+    socket.on("transactions:snapshot", handleSnapshot)
+    socket.on("transactions:update", handleUpdate)
+
+    return () => {
+      socket.off("transactions:snapshot", handleSnapshot)
+      socket.off("transactions:update", handleUpdate)
+      socket.disconnect()
+      socketRef.current = null
+    }
+  }, [CASPER_MAIN_RELAYER, RELAYER_TX_INITIAL_MODE, limit])
 
   return (
     <Card className="bg-card border-border shadow-xl h-full">
@@ -111,13 +190,13 @@ export function TransactionsCard() {
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          {transactions.map((tx, index) => (
+          {rows.map((tx) => (
             <div
               key={tx.id}
               className={cn(
                 "p-4 rounded-lg border border-border bg-secondary/30",
                 "hover:bg-secondary/50 transition-all duration-200",
-                index === 0 && "animate-in fade-in slide-in-from-top-2 duration-500",
+                animatedIds.has(tx.id) && "animate-in fade-in slide-in-from-top-2 duration-500",
               )}
             >
               <div className="flex items-start justify-between mb-2">

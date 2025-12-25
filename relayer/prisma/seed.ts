@@ -1,4 +1,4 @@
-import { PrismaClient, CHAIN } from '@prisma/client';
+import { PrismaClient, CHAIN, TOKEN_TYPE } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -15,6 +15,7 @@ type ChainSeed = {
   name: string;
   kind: CHAIN;
   chainId: number;
+  evmChainId?: number | null;
   displayName: string;
 };
 
@@ -27,6 +28,8 @@ type TokenSeed = {
   contractAddress?: string | null;
   contractHash?: string | null;
   contractPackageHash?: string | null;
+  tokenType?: TOKEN_TYPE | null;
+  canonicalChainId?: number | null;
 };
 
 type TokenPairSeed = {
@@ -41,12 +44,14 @@ async function upsertChain(seed: ChainSeed) {
     update: {
       kind: seed.kind,
       chainId: seed.chainId,
+      evmChainId: seed.evmChainId ?? null,
       displayName: seed.displayName,
     },
     create: {
       name: seed.name,
       kind: seed.kind,
       chainId: seed.chainId,
+      evmChainId: seed.evmChainId ?? null,
       displayName: seed.displayName,
       logoUrl: null,
     },
@@ -67,6 +72,8 @@ async function upsertToken(seed: TokenSeed, chainId: number) {
         name: seed.name,
         symbol: seed.symbol,
         decimals: seed.decimals,
+        tokenType: seed.tokenType ?? null,
+        canonicalChainId: seed.canonicalChainId ?? null,
       },
       create: {
         chainId,
@@ -76,6 +83,8 @@ async function upsertToken(seed: TokenSeed, chainId: number) {
         logoUrl: null,
         contractAddress: address,
         contractHash: null,
+        tokenType: seed.tokenType ?? null,
+        canonicalChainId: seed.canonicalChainId ?? null,
       },
     });
   }
@@ -97,6 +106,8 @@ async function upsertToken(seed: TokenSeed, chainId: number) {
         symbol: seed.symbol,
         decimals: seed.decimals,
         contractPackageHash: packageHash,
+        tokenType: seed.tokenType ?? null,
+        canonicalChainId: seed.canonicalChainId ?? null,
       },
       create: {
         chainId,
@@ -107,6 +118,8 @@ async function upsertToken(seed: TokenSeed, chainId: number) {
         contractAddress: null,
         contractHash: hash,
         contractPackageHash: packageHash,
+        tokenType: seed.tokenType ?? null,
+        canonicalChainId: seed.canonicalChainId ?? null,
       },
     });
   }
@@ -152,18 +165,21 @@ async function main() {
       name: 'base-sepolia',
       kind: CHAIN.EVM,
       chainId: 102,
+      evmChainId: 84532,
       displayName: 'Base Sepolia',
     },
     {
       name: 'arbitrum-sepolia',
       kind: CHAIN.EVM,
       chainId: 103,
+      evmChainId: 421614,
       displayName: 'Arbitrum Sepolia',
     },
     {
       name: 'polygon-amoy',
       kind: CHAIN.EVM,
       chainId: 104,
+      evmChainId: 80002,
       displayName: 'Polygon Amoy',
     },
   ];
@@ -366,6 +382,28 @@ async function main() {
     },
   ];
 
+  const tokenMetadata: Record<string, { tokenType: TOKEN_TYPE; canonicalChainId: number }> = {
+    'casper-usdc': { tokenType: TOKEN_TYPE.CANONICAL, canonicalChainId: 1 },
+    'casper-wcspr': { tokenType: TOKEN_TYPE.CANONICAL, canonicalChainId: 1 },
+    'casper-wusdc-base': { tokenType: TOKEN_TYPE.WRAPPED, canonicalChainId: 102 },
+    'casper-wusdc-arb': { tokenType: TOKEN_TYPE.WRAPPED, canonicalChainId: 103 },
+    'casper-wusdc-poly': { tokenType: TOKEN_TYPE.WRAPPED, canonicalChainId: 104 },
+    'casper-weth-base': { tokenType: TOKEN_TYPE.WRAPPED, canonicalChainId: 102 },
+    'casper-weth-arb': { tokenType: TOKEN_TYPE.WRAPPED, canonicalChainId: 103 },
+    'base-usdc': { tokenType: TOKEN_TYPE.CANONICAL, canonicalChainId: 102 },
+    'base-etht': { tokenType: TOKEN_TYPE.CANONICAL, canonicalChainId: 102 },
+    'base-wusdc-cspr': { tokenType: TOKEN_TYPE.WRAPPED, canonicalChainId: 1 },
+    'base-wcspr': { tokenType: TOKEN_TYPE.WRAPPED, canonicalChainId: 1 },
+    'arb-usdc': { tokenType: TOKEN_TYPE.CANONICAL, canonicalChainId: 103 },
+    'arb-etht': { tokenType: TOKEN_TYPE.CANONICAL, canonicalChainId: 103 },
+    'arb-wusdc-cspr': { tokenType: TOKEN_TYPE.WRAPPED, canonicalChainId: 1 },
+    'arb-wcspr': { tokenType: TOKEN_TYPE.WRAPPED, canonicalChainId: 1 },
+    'amoy-usdc': { tokenType: TOKEN_TYPE.CANONICAL, canonicalChainId: 104 },
+    'amoy-etht': { tokenType: TOKEN_TYPE.CANONICAL, canonicalChainId: 104 },
+    'amoy-wusdc-cspr': { tokenType: TOKEN_TYPE.WRAPPED, canonicalChainId: 1 },
+    'amoy-wcspr': { tokenType: TOKEN_TYPE.WRAPPED, canonicalChainId: 1 },
+  };
+
   const tokenRows = new Map<string, { id: number; chainName: string }>();
 
   for (const token of tokens) {
@@ -373,7 +411,9 @@ async function main() {
     if (!chain) {
       throw new Error(`Chain not found for token ${token.key}`);
     }
-    const row = await upsertToken(token, chain.id);
+    const meta = tokenMetadata[token.key];
+    const seed = meta ? { ...token, ...meta } : token;
+    const row = await upsertToken(seed, chain.id);
     tokenRows.set(token.key, { id: row.id, chainName: token.chainName });
   }
 

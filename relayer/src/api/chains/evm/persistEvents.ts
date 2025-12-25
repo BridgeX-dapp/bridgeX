@@ -2,6 +2,7 @@ import { BRIDGE_EVENT, CHAIN } from '@prisma/client';
 import prisma from '../../lib/utils/clients/prisma-client';
 import { NormalizedBridgeEvent } from '../../lib/utils/normalizedBridgeEvent';
 import { logger } from '../../lib/utils/logger';
+import { resolveSourceTokenId } from '../../lib/utils/tokenMapping';
 import { resolveChainRefId } from '../../lib/utils/chainResolver';
 import { EvmChainConfig, loadEvmConfig } from './config';
 
@@ -42,11 +43,18 @@ export async function persistEvmSourceEvent(params: {
   const destChainRefId = destChainIdNum
     ? await resolveChainRefId({ chainId: destChainIdNum })
     : null;
+  const tokenRefId = ev.token
+    ? await resolveSourceTokenId(sourceChainRefId, ev.token)
+    : null;
 
   try {
     await prisma.transaction.upsert({
       where: { eventId },
-      update: {},
+      update: {
+        tokenRefId: tokenRefId ?? undefined,
+        sourceChainRefId,
+        destChainRefId,
+      },
       create: {
         eventId,
 
@@ -69,6 +77,7 @@ export async function persistEvmSourceEvent(params: {
 
         sourceChainRefId,
         destChainRefId,
+        tokenRefId,
 
         status,
       },

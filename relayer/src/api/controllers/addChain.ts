@@ -3,7 +3,7 @@ import { CHAIN } from '@prisma/client';
 import prisma from '../lib/utils/clients/prisma-client';
 
 export const addChain = expressAsyncHandler(async (req, res) => {
-  const { name, kind, chainId, displayName, logoUrl } = req.body ?? {};
+  const { name, kind, chainId, evmChainId, displayName, logoUrl } = req.body ?? {};
 
   if (!name || !kind) {
     res.status(400).json({ error: 'name and kind are required' });
@@ -23,11 +23,19 @@ export const addChain = expressAsyncHandler(async (req, res) => {
     return;
   }
 
+  const parsedEvmChainId =
+    evmChainId === undefined || evmChainId === null ? null : Number(evmChainId);
+  if (parsedEvmChainId !== null && !Number.isFinite(parsedEvmChainId)) {
+    res.status(400).json({ error: 'evmChainId must be a number' });
+    return;
+  }
+
   const chain = await prisma.chain.create({
     data: {
       name: String(name).toLowerCase(),
       kind: kindValue as CHAIN,
       chainId: parsedChainId,
+      evmChainId: parsedEvmChainId,
       displayName: displayName ?? null,
       logoUrl: logoUrl ?? null,
     },
@@ -40,7 +48,7 @@ export const addChain = expressAsyncHandler(async (req, res) => {
 });
 
 export const listChains = expressAsyncHandler(async (req, res) => {
-  const { name, kind, chainId } = req.query ?? {};
+  const { name, kind, chainId, evmChainId } = req.query ?? {};
 
   const where: any = {};
 
@@ -59,6 +67,15 @@ export const listChains = expressAsyncHandler(async (req, res) => {
       return;
     }
     where.chainId = parsedChainId;
+  }
+
+  if (evmChainId !== undefined) {
+    const parsedEvmChainId = Number(evmChainId);
+    if (!Number.isFinite(parsedEvmChainId)) {
+      res.status(400).json({ error: 'evmChainId must be a number' });
+      return;
+    }
+    where.evmChainId = parsedEvmChainId;
   }
 
   const chains = await prisma.chain.findMany({

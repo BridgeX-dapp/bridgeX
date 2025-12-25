@@ -3,6 +3,7 @@ import prisma from '../../lib/utils/clients/prisma-client';
 import { generateEventId } from '../../lib/utils/eventId';
 import { logger } from '../../lib/utils/logger';
 import { resolveChainRefId } from '../../lib/utils/chainResolver';
+import { resolveSourceTokenId } from '../../lib/utils/tokenMapping';
 import { NormalizedCasperLockedCanonicalBackfillEvent } from './backFillEvents';
 
 export async function persistCasperLockedCanonicalEvent(
@@ -30,10 +31,18 @@ export async function persistCasperLockedCanonicalEvent(
     ? await resolveChainRefId({ chainId: destChainIdNum })
     : null;
 
+  const tokenRefId = ev.token
+    ? await resolveSourceTokenId(sourceChainRefId, ev.token)
+    : null;
+
   try {
     await prisma.transaction.upsert({
       where: { eventId },
-      update: {}, // idempotent ƒ?" no overwrite
+      update: {
+        tokenRefId: tokenRefId ?? undefined,
+        sourceChainRefId,
+        destChainRefId,
+      }, // idempotent
       create: {
         eventId,
 
@@ -56,6 +65,7 @@ export async function persistCasperLockedCanonicalEvent(
 
         sourceChainRefId,
         destChainRefId,
+        tokenRefId,
 
         status: 'LOCKED',
       },

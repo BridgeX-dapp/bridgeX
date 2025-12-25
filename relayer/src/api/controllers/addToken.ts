@@ -1,4 +1,5 @@
 import expressAsyncHandler from 'express-async-handler';
+import { TOKEN_TYPE } from '@prisma/client';
 import prisma from '../lib/utils/clients/prisma-client';
 
 export const addToken = expressAsyncHandler(async (req, res) => {
@@ -11,6 +12,8 @@ export const addToken = expressAsyncHandler(async (req, res) => {
     logoUrl,
     contractAddress,
     contractHash,
+    tokenType,
+    canonicalChainId,
   } = req.body ?? {};
 
   if (!name || !symbol || decimals === undefined) {
@@ -23,6 +26,26 @@ export const addToken = expressAsyncHandler(async (req, res) => {
       error: 'contractAddress or contractHash is required',
     });
     return;
+  }
+
+  let resolvedTokenType: TOKEN_TYPE | null = null;
+  if (tokenType) {
+    const typeValue = String(tokenType).toUpperCase();
+    if (!(typeValue in TOKEN_TYPE)) {
+      res.status(400).json({ error: 'tokenType must be CANONICAL or WRAPPED' });
+      return;
+    }
+    resolvedTokenType = typeValue as TOKEN_TYPE;
+  }
+
+  let resolvedCanonicalChainId: number | null = null;
+  if (canonicalChainId !== undefined && canonicalChainId !== null) {
+    const parsedCanonicalChainId = Number(canonicalChainId);
+    if (!Number.isFinite(parsedCanonicalChainId)) {
+      res.status(400).json({ error: 'canonicalChainId must be a number' });
+      return;
+    }
+    resolvedCanonicalChainId = parsedCanonicalChainId;
   }
 
   let chain = null;
@@ -56,6 +79,8 @@ export const addToken = expressAsyncHandler(async (req, res) => {
       logoUrl: logoUrl ?? null,
       contractAddress: contractAddress?.toLowerCase() ?? null,
       contractHash: contractHash?.toLowerCase() ?? null,
+      tokenType: resolvedTokenType,
+      canonicalChainId: resolvedCanonicalChainId,
     },
   });
 

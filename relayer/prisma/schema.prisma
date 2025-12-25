@@ -57,6 +57,7 @@ model Chain {
   name        String   @unique // e.g., "ethereum", "base", "casper"
   kind        CHAIN
   chainId     Int?
+  evmChainId  Int?
   displayName String?
   logoUrl     String?
   createdAt   DateTime @default(now())
@@ -81,6 +82,8 @@ model Token {
   contractAddress String?
   contractHash    String?
   contractPackageHash String?
+  tokenType       TOKEN_TYPE?
+  canonicalChainId Int?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -138,4 +141,10 @@ enum TX_STATUS {
   FAILED // execution failed (retryable)
 
   FINALIZED // optional: confirmed & irreversible
+}
+
+
+enum TOKEN_TYPE {
+  CANONICAL
+  WRAPPED
 }

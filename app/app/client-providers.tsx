@@ -19,6 +19,8 @@ type ClientProvidersProps = {
     CASPER_BRIDGE_CORE_HASH: string
     CASPER_BRIDGE_CORE_CONTRACT_PACKAGE_HASH: string
     CASPER_MAIN_RELAYER: string
+    RELAYER_TX_INITIAL_LIMIT: number
+    RELAYER_TX_INITIAL_MODE: "latest" | "snapshot"
   }
   evmClient: {
     EVM_WALLETCONNECT_PROJECT_ID: string

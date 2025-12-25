@@ -38,6 +38,8 @@ const casperClientConfigSchema = z.object({
   CASPER_BRIDGE_CORE_HASH: z.string().min(1),
   CASPER_BRIDGE_CORE_CONTRACT_PACKAGE_HASH: z.string().min(1),
   CASPER_MAIN_RELAYER: z.string().url(),
+  RELAYER_TX_INITIAL_LIMIT: z.coerce.number().int().positive(),
+  RELAYER_TX_INITIAL_MODE: z.enum(["latest", "snapshot"]),
 });
 
 export type CasperClientConfig = z.infer<typeof casperClientConfigSchema>;
@@ -84,6 +86,8 @@ export function loadCasperClientConfig(): CasperClientConfig {
     CASPER_BRIDGE_CORE_CONTRACT_PACKAGE_HASH:
       process.env.CASPER_BRIDGE_CORE_CONTRACT_PACKAGE_HASH,
     CASPER_MAIN_RELAYER: process.env.CASPER_MAIN_RELAYER,
+    RELAYER_TX_INITIAL_LIMIT: process.env.RELAYER_TX_INITIAL_LIMIT ?? "6",
+    RELAYER_TX_INITIAL_MODE: process.env.RELAYER_TX_INITIAL_MODE ?? "latest",
   });
 
   if (!parsed.success) {
