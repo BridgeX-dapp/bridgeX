@@ -40,6 +40,8 @@ const casperClientConfigSchema = z.object({
   CASPER_MAIN_RELAYER: z.string().url(),
   RELAYER_TX_INITIAL_LIMIT: z.coerce.number().int().positive(),
   RELAYER_TX_INITIAL_MODE: z.enum(["latest", "snapshot"]),
+  CASPER_MIN_GAS_CSPR: z.string().min(1),
+  CASPER_FAUCET_URL: z.string().url(),
 });
 
 export type CasperClientConfig = z.infer<typeof casperClientConfigSchema>;
@@ -58,6 +60,12 @@ const evmClientConfigSchema = z.object({
   ARBITRUM_SEPOLIA_WS_RPC_URL: z.string().url(),
   POLYGON_AMOY_RPC_URL: z.string().url(),
   POLYGON_AMOY_WS_RPC_URL: z.string().url(),
+  BASE_SEPOLIA_MIN_GAS: z.string().min(1),
+  ARBITRUM_SEPOLIA_MIN_GAS: z.string().min(1),
+  POLYGON_AMOY_MIN_GAS: z.string().min(1),
+  BASE_SEPOLIA_FAUCET_URL: z.string().url(),
+  ARBITRUM_SEPOLIA_FAUCET_URL: z.string().url(),
+  POLYGON_AMOY_FAUCET_URL: z.string().url(),
 });
 
 export type EvmClientConfig = z.infer<typeof evmClientConfigSchema>;
@@ -88,6 +96,8 @@ export function loadCasperClientConfig(): CasperClientConfig {
     CASPER_MAIN_RELAYER: process.env.CASPER_MAIN_RELAYER,
     RELAYER_TX_INITIAL_LIMIT: process.env.RELAYER_TX_INITIAL_LIMIT ?? "6",
     RELAYER_TX_INITIAL_MODE: process.env.RELAYER_TX_INITIAL_MODE ?? "latest",
+    CASPER_MIN_GAS_CSPR: process.env.CASPER_MIN_GAS_CSPR ?? "500",
+    CASPER_FAUCET_URL: process.env.CASPER_FAUCET_URL ?? "https://testnet.cspr.live/tools/faucet",
   });
 
   if (!parsed.success) {
@@ -131,7 +141,8 @@ export function loadCasperConfig(): CasperConfig {
 
   // enforce exactly one filter set
   const hasCaperContract = !!cfg.CASPER_BRIDGE_CORE_HASH;
-  const hasCasperPackage = !!cfg.CASPER_CONTRACT_PACKAGE_HASH;
+  //@ts-ignore
+  const hasCasperPackage = !!cfg?.CASPER_CONTRACT_PACKAGE_HASH;
   if (Number(hasCaperContract) + Number(hasCasperPackage) !== 1) {
     throw new Error(
       'Set exactly one of CASPER_BRIDGE_CORE_HASH or CASPER_CONTRACT_PACKAGE_HASH',
@@ -156,6 +167,14 @@ export function loadEvmClientConfig(): EvmClientConfig {
     ARBITRUM_SEPOLIA_WS_RPC_URL: process.env.ARBITRUM_SEPOLIA_WS_RPC_URL,
     POLYGON_AMOY_RPC_URL: process.env.POLYGON_AMOY_RPC_URL,
     POLYGON_AMOY_WS_RPC_URL: process.env.POLYGON_AMOY_WS_RPC_URL,
+    BASE_SEPOLIA_MIN_GAS: process.env.BASE_SEPOLIA_MIN_GAS ?? "0.001",
+    ARBITRUM_SEPOLIA_MIN_GAS: process.env.ARBITRUM_SEPOLIA_MIN_GAS ?? "0.001",
+    POLYGON_AMOY_MIN_GAS: process.env.POLYGON_AMOY_MIN_GAS ?? "0.1",
+    BASE_SEPOLIA_FAUCET_URL: process.env.BASE_SEPOLIA_FAUCET_URL ?? "https://www.alchemy.com/faucets/base-sepolia",
+    ARBITRUM_SEPOLIA_FAUCET_URL:
+      process.env.ARBITRUM_SEPOLIA_FAUCET_URL ?? "https://www.alchemy.com/faucets/arbitrum-sepolia",
+    POLYGON_AMOY_FAUCET_URL:
+      process.env.POLYGON_AMOY_FAUCET_URL ?? "https://www.alchemy.com/faucets/polygon-amoy",
   });
 
   if (!parsed.success) {

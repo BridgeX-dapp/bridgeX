@@ -16,7 +16,7 @@ export function parseAmountToBaseUnits(amount: string, decimals: number): bigint
 
 export function formatAmountFromBaseUnits(amount: bigint, decimals: number): string {
   if (!Number.isFinite(decimals) || decimals < 0) return amount.toString()
-  const negative = amount < 0n
+  const negative = amount < BigInt(0)
   const value = negative ? -amount : amount
   const raw = value.toString().padStart(decimals + 1, "0")
   const whole = raw.slice(0, -decimals) || "0"

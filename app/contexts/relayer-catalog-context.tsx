@@ -2,14 +2,11 @@
 
 import type React from "react"
 import { createContext, useContext, useEffect, useMemo, useState } from "react"
-import { useCasperClientConfig } from "@/contexts/casper-client-config-context"
 import {
   type CatalogChain,
   type CatalogToken,
   type CatalogTokenPair,
-  fetchCatalogChains,
-  fetchCatalogTokenPairs,
-  fetchCatalogTokens,
+  fetchCatalogSnapshot,
 } from "@/lib/relayer/catalog"
 
 type RelayerCatalogContextValue = {
@@ -23,7 +20,6 @@ type RelayerCatalogContextValue = {
 const RelayerCatalogContext = createContext<RelayerCatalogContextValue | undefined>(undefined)
 
 export function RelayerCatalogProvider({ children }: { children: React.ReactNode }) {
-  const { CASPER_MAIN_RELAYER } = useCasperClientConfig()
   const [chains, setChains] = useState<CatalogChain[]>([])
   const [tokens, setTokens] = useState<CatalogToken[]>([])
   const [tokenPairs, setTokenPairs] = useState<CatalogTokenPair[]>([])
@@ -37,11 +33,7 @@ export function RelayerCatalogProvider({ children }: { children: React.ReactNode
       setLoading(true)
       setError(null)
       try {
-        const [nextChains, nextTokens, nextPairs] = await Promise.all([
-          fetchCatalogChains(CASPER_MAIN_RELAYER),
-          fetchCatalogTokens(CASPER_MAIN_RELAYER),
-          fetchCatalogTokenPairs(CASPER_MAIN_RELAYER),
-        ])
+        const { chains: nextChains, tokens: nextTokens, tokenPairs: nextPairs } = await fetchCatalogSnapshot()
         if (!isMounted) return
         setChains(nextChains)
         setTokens(nextTokens)
@@ -59,7 +51,7 @@ export function RelayerCatalogProvider({ children }: { children: React.ReactNode
     return () => {
       isMounted = false
     }
-  }, [CASPER_MAIN_RELAYER])
+  }, [])
 
   const value = useMemo(
     () => ({

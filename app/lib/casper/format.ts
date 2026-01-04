@@ -51,7 +51,7 @@ export function publicKeyToRecipientBytes32(publicKeyHex: string, withPrefix = t
   return toBytes32Hex(accountHash, withPrefix)
 }
 
-export function shortenHash(value: string, visible = 4): string {
+export function shortenHash(value: string, visible = 8): string {
   const normalized = normalizeHex(value)
   if (normalized.length <= visible * 2) return normalized
   return `${normalized.slice(0, visible)}...${normalized.slice(-visible)}`

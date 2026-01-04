@@ -12,10 +12,11 @@ import { useCasperClientConfig } from "@/contexts/casper-client-config-context"
 import { useEvmBridge } from "@/hooks/use-evm-bridge"
 import { formatCasperRecipient, formatEvmRecipient } from "@/lib/recipient"
 import { parseAmountToBaseUnits } from "@/lib/amount"
+import { ARBITRUM_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_CHAIN_ID, POLYGON_AMOY_CHAIN_ID } from "@/lib/evm/chains"
 import { erc20Abi } from "@/lib/evm/erc20-abi"
 import { mapCasperError, mapEvmError } from "@/lib/transaction-errors"
 
-type ModalStep = "allowance" | "approving" | "approved" | "processing" | "success" | "error"
+type ModalStep = "gas" | "allowance" | "approving" | "approved" | "processing" | "success" | "error"
 type ErrorStep = "allowance" | "approval" | "source" | "destination" | "balance"
 
 type BridgeInput = {
@@ -35,6 +36,8 @@ type BridgeTxState = {
   sourceTxHash: string | null
   destTxHash: string | null
   isLoading: boolean
+  gasMessage: string | null
+  gasFaucetUrl: string | null
 }
 
 function normalizeTxHash(hash: string) {
@@ -62,12 +65,53 @@ export function useBridgeTransaction(input: BridgeInput) {
     sourceTxHash: null,
     destTxHash: null,
     isLoading: false,
+    gasMessage: null,
+    gasFaucetUrl: null,
   })
   const [pendingAction, setPendingAction] = useState<"approve" | "bridge" | null>(null)
   const [activeCasperKind, setActiveCasperKind] = useState<"approve" | "lock" | "burn" | null>(null)
   const approveSettledRef = useRef(false)
 
   const requiresEvmSource = input.sourceChain?.kind === "EVM"
+  const casperMinGas = useMemo(() => parseAmountToBaseUnits(casperClient.CASPER_MIN_GAS_CSPR, 9), [
+    casperClient.CASPER_MIN_GAS_CSPR,
+  ])
+  const evmGasPolicy = useMemo(() => {
+    if (input.sourceChain?.evmChainId === BASE_SEPOLIA_CHAIN_ID) {
+      return {
+        min: parseAmountToBaseUnits(evmClient.BASE_SEPOLIA_MIN_GAS, 18),
+        minDisplay: evmClient.BASE_SEPOLIA_MIN_GAS,
+        faucetUrl: evmClient.BASE_SEPOLIA_FAUCET_URL,
+      }
+    }
+    if (input.sourceChain?.evmChainId === ARBITRUM_SEPOLIA_CHAIN_ID) {
+      return {
+        min: parseAmountToBaseUnits(evmClient.ARBITRUM_SEPOLIA_MIN_GAS, 18),
+        minDisplay: evmClient.ARBITRUM_SEPOLIA_MIN_GAS,
+        faucetUrl: evmClient.ARBITRUM_SEPOLIA_FAUCET_URL,
+      }
+    }
+    if (input.sourceChain?.evmChainId === POLYGON_AMOY_CHAIN_ID) {
+      return {
+        min: parseAmountToBaseUnits(evmClient.POLYGON_AMOY_MIN_GAS, 18),
+        minDisplay: evmClient.POLYGON_AMOY_MIN_GAS,
+        faucetUrl: evmClient.POLYGON_AMOY_FAUCET_URL,
+      }
+    }
+    return {
+      min: parseAmountToBaseUnits(evmClient.BASE_SEPOLIA_MIN_GAS, 18),
+      minDisplay: evmClient.BASE_SEPOLIA_MIN_GAS,
+      faucetUrl: evmClient.BASE_SEPOLIA_FAUCET_URL,
+    }
+  }, [
+    evmClient.ARBITRUM_SEPOLIA_FAUCET_URL,
+    evmClient.ARBITRUM_SEPOLIA_MIN_GAS,
+    evmClient.BASE_SEPOLIA_FAUCET_URL,
+    evmClient.BASE_SEPOLIA_MIN_GAS,
+    evmClient.POLYGON_AMOY_FAUCET_URL,
+    evmClient.POLYGON_AMOY_MIN_GAS,
+    input.sourceChain?.evmChainId,
+  ])
 
   const parsedAmount = useMemo(() => {
     if (!input.sourceToken) return null
@@ -90,6 +134,8 @@ export function useBridgeTransaction(input: BridgeInput) {
       sourceTxHash: null,
       destTxHash: null,
       isLoading: false,
+      gasMessage: null,
+      gasFaucetUrl: null,
     })
     setPendingAction(null)
     setActiveCasperKind(null)
@@ -111,6 +157,19 @@ export function useBridgeTransaction(input: BridgeInput) {
       errorMessage: message,
       errorStep: step,
       isLoading: false,
+      gasMessage: null,
+      gasFaucetUrl: null,
+    }))
+  }, [])
+
+  const setGasWarning = useCallback((message: string, faucetUrl?: string | null) => {
+    setState((prev) => ({
+      ...prev,
+      open: true,
+      step: "gas",
+      isLoading: false,
+      gasMessage: message,
+      gasFaucetUrl: faucetUrl ?? null,
     }))
   }, [])
 
@@ -121,6 +180,8 @@ export function useBridgeTransaction(input: BridgeInput) {
       isLoading: step === "processing" || step === "approving",
       errorMessage: null,
       errorStep: null,
+      gasMessage: null,
+      gasFaucetUrl: null,
     }))
   }, [])
 
@@ -247,6 +308,53 @@ export function useBridgeTransaction(input: BridgeInput) {
     })
     return allowance
   }, [casperTx, casperWallet.accountHash, input.sourceToken?.contractHash, parsedAmount])
+
+  const checkNativeGasBalance = useCallback(async () => {
+    const sourceName = input.sourceChain?.displayName ?? input.sourceChain?.name ?? "source chain"
+    if (requiresEvmSource) {
+      if (!publicClient || !evmWallet.address) {
+        throw new Error("EVM wallet is not ready.")
+      }
+      const balance = await publicClient.getBalance({
+        address: evmWallet.address as `0x${string}`,
+      })
+      //@ts-ignore
+      if (balance < evmGasPolicy.min) {
+        setGasWarning(
+          `You need at least ${evmGasPolicy.minDisplay} native token on ${sourceName} to cover gas fees.`,
+          evmGasPolicy.faucetUrl,
+        )
+        return false
+      }
+      return true
+    }
+
+    if (!casperWallet.account?.liquid_balance) {
+      throw new Error("Casper wallet is not ready.")
+    
+    }
+      //@ts-ignore
+    if (BigInt(casperWallet.account.liquid_balance) < casperMinGas) {
+      setGasWarning(
+        `You need at least ${casperClient.CASPER_MIN_GAS_CSPR} CSPR on ${sourceName} to cover gas fees.`,
+        casperClient.CASPER_FAUCET_URL,
+      )
+      return false
+    }
+    return true
+  }, [
+    casperClient.CASPER_FAUCET_URL,
+    casperClient.CASPER_MIN_GAS_CSPR,
+    casperMinGas,
+    casperWallet.account?.liquid_balance,
+    evmGasPolicy,
+    evmWallet.address,
+    input.sourceChain?.displayName,
+    input.sourceChain?.name,
+    publicClient,
+    requiresEvmSource,
+    setGasWarning,
+  ])
 
   const executeApproval = useCallback(async () => {
     if (!parsedAmount || !input.sourceToken) return
@@ -410,6 +518,7 @@ export function useBridgeTransaction(input: BridgeInput) {
       setError("Bridge route is incomplete.", "source")
       return
     }
+    //@ts-ignore
     if (parsedAmount === null || parsedAmount <= 0n) {
       setError("Enter a valid amount.", "allowance")
       return
@@ -420,6 +529,10 @@ export function useBridgeTransaction(input: BridgeInput) {
     }
 
     try {
+      const hasGas = await checkNativeGasBalance()
+      if (!hasGas) {
+        return
+      }
       if (requiresEvmSource) {
         const allowance = await checkEvmBalanceAndAllowance()
         if (allowance < parsedAmount) {
@@ -445,6 +558,7 @@ export function useBridgeTransaction(input: BridgeInput) {
   }, [
     checkCasperBalanceAndAllowance,
     checkEvmBalanceAndAllowance,
+    checkNativeGasBalance,
     executeBridge,
     formattedRecipient,
     input.destChain,

@@ -65,8 +65,8 @@ export function TokenSelectModal({ open, onOpenChange, onSelectToken, tokens, ti
                     ) : null}
                   </div>
                   <div className="flex-1 text-left">
-                    <div className="font-semibold">{token.symbol}</div>
-                    <div className="text-xs text-muted-foreground">{token.name}</div>
+                    <div className="font-semibold">{token.name}</div>
+                    <div className="text-xs text-muted-foreground">{token.symbol}</div>
                   </div>
                   <div className="text-right text-xs text-muted-foreground">{token.decimals} decimals</div>
                 </button>

@@ -153,8 +153,8 @@ export function FaucetCard() {
                       ) : null}
                     </div>
                     <div>
-                      <div className="font-semibold">{selectedToken.symbol}</div>
-                      <div className="text-xs text-muted-foreground">{selectedToken.name}</div>
+                      <div className="font-semibold">{selectedToken.name}</div>
+                      <div className="text-xs text-muted-foreground">{selectedToken.symbol}</div>
                     </div>
                   </div>
                 ) : (

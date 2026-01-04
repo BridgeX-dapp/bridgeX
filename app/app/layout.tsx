@@ -5,29 +5,61 @@ import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import { loadCasperClickConfig, loadCasperClientConfig, loadEvmClientConfig } from "@/lib/config"
 import { ClientProviders } from "./client-providers"
-
+import { GeistMono } from "geist/font/mono"
+import { GeistSans } from "geist/font/sans"
 const inter = Inter({ subsets: ["latin"] })
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
+
 export const metadata: Metadata = {
-  title: "BridgeX - Cross-Chain Bridge",
-  description: "Bridge your assets seamlessly across blockchain networks",
-  generator: "v0.app",
+  title: {
+    default: "BridgeX",
+    template: "%s · BridgeX",
+  },
+  description: "Bridge your assets seamlessly across blockchain networks.",
+  applicationName: "BridgeX",
+  generator: "BridgeX",
+  metadataBase: new URL(siteUrl),
+  alternates: {
+    canonical: "/",
+  },
   icons: {
     icon: [
       {
-        url: "/icon-light-32x32.png",
-        media: "(prefers-color-scheme: light)",
-      },
-      {
-        url: "/icon-dark-32x32.png",
-        media: "(prefers-color-scheme: dark)",
-      },
-      {
-        url: "/icon.svg",
-        type: "image/svg+xml",
+        url: "/icon.png",
+        sizes: "32x32",
+        type: "image/png",
       },
     ],
-    apple: "/apple-icon.png",
+    apple: [
+      {
+        url: "/img/logo.png",
+        sizes: "180x180",
+        type: "image/png",
+      },
+    ],
+    shortcut: ["/icon.png"],
+  },
+  openGraph: {
+    title: "BridgeX",
+    description: "Bridge your assets seamlessly across blockchain networks.",
+    url: "/",
+    siteName: "BridgeX",
+    images: [
+      {
+        url: "/img/cover.png",
+        width: 1200,
+        height: 630,
+        alt: "BridgeX cover",
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "BridgeX",
+    description: "Bridge your assets seamlessly across blockchain networks.",
+    images: ["/img/cover.png"],
   },
 }
 
@@ -41,8 +73,8 @@ export default function RootLayout({
   const evmClientConfig = loadEvmClientConfig()
 
   return (
-    <html lang="en" className="dark">
-      <body className={`${inter.className} antialiased`}>
+    <html lang="en" className={`${GeistMono.className} dark`}>
+      <body className={`${GeistSans.className} font-sans antialiased`}>
         <ClientProviders
           casperClick={{
             appName: casperConfig.APP_NAME,

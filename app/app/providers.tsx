@@ -103,8 +103,10 @@ export function Providers({ casperClick, casperClient, evmClient, children }: Pr
           <ClickProvider options={options}>
             <ThemeProvider theme={theme}>
               {isClient ? <ClickUI rootAppElement="body" /> : null}
+              {/*@ts-ignore */}
               <EvmClientConfigProvider value={evmClient}>
                 <EvmWalletProvider>
+                  {/*@ts-ignore */}
                   <CasperClientConfigProvider value={casperClient}>
                     <RelayerCatalogProvider>
                       <CasperWalletProvider>

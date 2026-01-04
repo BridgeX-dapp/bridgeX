@@ -119,6 +119,7 @@ export function EvmTestPanel() {
         address: token,
         abi: erc20Abi,
         functionName: "allowance",
+        //@ts-ignore
         args: [address, spender],
       })
       setAllowance(value.toString())
@@ -144,6 +145,7 @@ export function EvmTestPanel() {
     try {
       const token = requireAddress(tokenAddress, "Token address")
       const spender = spenderAddress ? requireAddress(spenderAddress, "Spender address") : bridgeCoreAddress
+      //@ts-ignore
       const hash = await approve({ token, spender, amount: parsedAmount })
       setLastTxHash(hash)
       await waitForTransaction(hash)

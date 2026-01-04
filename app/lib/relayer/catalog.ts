@@ -38,6 +38,11 @@ export type CatalogTokenPair = {
 type CatalogChainsResponse = { chains: CatalogChain[] }
 type CatalogTokensResponse = { tokens: CatalogToken[] }
 type CatalogTokenPairsResponse = { tokenPairs: CatalogTokenPair[] }
+type CatalogSnapshotResponse = {
+  chains: CatalogChain[]
+  tokens: CatalogToken[]
+  tokenPairs: CatalogTokenPair[]
+}
 
 function joinUrl(baseUrl: string, path: string) {
   return `${baseUrl.replace(/\/$/, "")}${path}`
@@ -68,4 +73,17 @@ export async function fetchCatalogTokenPairs(baseUrl: string): Promise<CatalogTo
   }
   const data = (await response.json()) as CatalogTokenPairsResponse
   return data.tokenPairs ?? []
+}
+
+export async function fetchCatalogSnapshot(): Promise<CatalogSnapshotResponse> {
+  const response = await fetch("/api/catalog")
+  if (!response.ok) {
+    throw new Error(`Failed to fetch catalog (${response.status})`)
+  }
+  const data = (await response.json()) as CatalogSnapshotResponse
+  return {
+    chains: data.chains ?? [],
+    tokens: data.tokens ?? [],
+    tokenPairs: data.tokenPairs ?? [],
+  }
 }

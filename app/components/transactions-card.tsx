@@ -245,6 +245,11 @@ export function TransactionsCard() {
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
+          {rows.length === 0 ? (
+            <div className="p-6 rounded-lg border border-border bg-secondary/20 text-center text-sm text-muted-foreground">
+              No current transactions yet.
+            </div>
+          ) : null}
           {rows.map((tx) => (
             <div
               key={tx.id}
